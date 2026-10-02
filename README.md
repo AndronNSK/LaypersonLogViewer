@@ -3,6 +3,8 @@
 A first iteration of a C# desktop log viewer using **Avalonia UI** and .NET 10.
 The interface is in Russian. Avalonia is the assumed meaning of “Avalon UI”.
 
+[Спецификация требований на русском языке](docs/Спецификация.md)
+
 ## Run
 
 Install the .NET 10 SDK, then run these commands from the repository folder:
