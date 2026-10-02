@@ -23,6 +23,9 @@ Open `samples/example.log` using **Открыть файл…**.
 - Each filter searches for literal text and can optionally match case.
 - Add multiple filters, remove individual filters, or reset all filters.
 - Original line numbers and file order are preserved. Duplicate and empty lines are retained when they match the rules.
+- The switch above the log chooses how to display filtered-out lines: hide them (default)
+  or keep them greyed out for context. Matching lines remain at normal contrast. The status
+  shows both the displayed count and the match count; switching modes keeps all filters.
 - Opening another file keeps the filters. A failed read keeps the previous file and shows an error.
 - Local files are opened read-only with `FileShare.ReadWrite | FileShare.Delete`, so a logger
   can keep writing or rotate the file while it is being read. The logger must itself allow
@@ -77,7 +80,10 @@ Headless means no desktop window needs to appear while tests run.
   It is similar in spirit to WPF XAML, but these are Avalonia controls.
 - `ViewModels/MainWindowViewModel.cs` stores the loaded lines, visible lines, filters,
   busy state, and errors. This is the **view model** in the Model–View–ViewModel pattern.
-- A binding such as `ItemsSource="{Binding VisibleLines}"` connects a control to a
+- `ViewModels/LogLineRow.cs` adds display state to an original line: whether the filters
+  reject it and how strongly to dim it. The view model caches all rows and matching rows,
+  so the display switch can change lists without rereading or refiltering the file.
+- A binding such as `ItemsSource="{Binding DisplayLines}"` connects a control to a
   property on its `DataContext` (here, the view model). `INotifyPropertyChanged` tells
   bindings to refresh after state changes. `ObservableCollection` also reports additions
   and removals, so the list of filters updates automatically.

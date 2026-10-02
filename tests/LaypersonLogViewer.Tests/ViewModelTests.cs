@@ -71,6 +71,64 @@ public sealed class ViewModelTests
         Assert.Contains("Нет строк", model.EmptyMessage);
     }
 
+    [Fact]
+    public async Task GreyModePreservesContextAndSwitchingBackRestoresMatches()
+    {
+        var model = new MainWindowViewModel();
+        await Load(model, "INFO ready\nERROR server\nERROR local\nERROR server");
+        await model.AddFilterAsync(new LogFilter(FilterKind.Include, "ERROR"));
+        await model.AddFilterAsync(new LogFilter(FilterKind.Exclude, "local"));
+        Assert.False(model.ShowFilteredOut);
+        Assert.Equal(new[] { 2, 4 }, model.DisplayLines.Select(row => row.Number));
+
+        model.ShowFilteredOut = true;
+        Assert.Equal(new[] { 1, 2, 3, 4 }, model.DisplayLines.Select(row => row.Number));
+        Assert.Equal(new[] { true, false, true, false }, model.DisplayLines.Select(row => row.IsFilteredOut));
+        Assert.Contains("Показано 4 из 4", model.Status);
+        Assert.Contains("Совпадений: 2", model.Status);
+
+        model.ShowFilteredOut = false;
+        Assert.Equal(new[] { 2, 4 }, model.DisplayLines.Select(row => row.Number));
+        Assert.Equal(2, model.Filters.Count);
+    }
+
+    [Fact]
+    public async Task GreyModeUpdatesAfterFilterChangesAndLoadingAnotherFile()
+    {
+        var model = new MainWindowViewModel { ShowFilteredOut = true };
+        await Load(model, "INFO\nERROR");
+        Assert.All(model.DisplayLines, row => Assert.False(row.IsFilteredOut));
+        var filter = new LogFilter(FilterKind.Exclude, "ERROR");
+        await model.AddFilterAsync(filter);
+        Assert.True(model.DisplayLines[1].IsFilteredOut);
+        await model.RemoveFilterAsync(filter);
+        Assert.All(model.DisplayLines, row => Assert.False(row.IsFilteredOut));
+        await model.AddFilterAsync(filter);
+        await Load(model, "ERROR new\nINFO new", "new.log");
+        Assert.True(model.ShowFilteredOut);
+        Assert.Equal(new[] { true, false }, model.DisplayLines.Select(row => row.IsFilteredOut));
+        await model.ClearFiltersAsync();
+        Assert.All(model.DisplayLines, row => Assert.False(row.IsFilteredOut));
+    }
+
+    [Fact]
+    public async Task GreyModeShowsNonmatchingLinesButStillRecognizesEmptyFiles()
+    {
+        var model = new MainWindowViewModel { ShowFilteredOut = true };
+        Assert.True(model.IsEmpty);
+        await Load(model, "INFO");
+        await model.AddFilterAsync(new LogFilter(FilterKind.Include, "ERROR"));
+        Assert.False(model.IsEmpty);
+        Assert.True(Assert.Single(model.DisplayLines).IsFilteredOut);
+        Assert.Contains("Совпадений: 0", model.Status);
+        model.ShowFilteredOut = false;
+        Assert.True(model.IsEmpty);
+        model.ShowFilteredOut = true;
+        await Load(model, "");
+        Assert.True(model.IsEmpty);
+        Assert.Equal("Файл пуст", model.EmptyMessage);
+    }
+
     private sealed class BrokenStream : MemoryStream
     {
         public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>

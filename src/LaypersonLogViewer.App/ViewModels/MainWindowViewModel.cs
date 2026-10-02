@@ -9,6 +9,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly ObservableCollection<LogFilter> _filters = new();
     private IReadOnlyList<LogLine> _allLines = Array.Empty<LogLine>();
     private IReadOnlyList<LogLine> _visibleLines = Array.Empty<LogLine>();
+    private IReadOnlyList<LogLineRow> _allRows = Array.Empty<LogLineRow>();
+    private IReadOnlyList<LogLineRow> _matchingRows = Array.Empty<LogLineRow>();
+    private bool _showFilteredOut;
     private string? _fileName;
     private string? _error;
     private bool _isBusy;
@@ -17,16 +20,27 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public ReadOnlyObservableCollection<LogFilter> Filters { get; }
     public IReadOnlyList<LogLine> VisibleLines => _visibleLines;
+    public IReadOnlyList<LogLineRow> DisplayLines => _showFilteredOut ? _allRows : _matchingRows;
+    public bool ShowFilteredOut
+    {
+        get => _showFilteredOut;
+        set
+        {
+            if (_showFilteredOut == value) return;
+            _showFilteredOut = value;
+            NotifyAll();
+        }
+    }
     public string FileName => _fileName ?? "Файл не открыт";
     public bool IsBusy => _isBusy;
     public string? Error => _error;
     public bool HasError => _error is not null;
     public bool HasNoFilters => _filters.Count == 0;
-    public bool IsEmpty => _visibleLines.Count == 0;
+    public bool IsEmpty => DisplayLines.Count == 0;
     public string EmptyMessage => _fileName is null ? "Откройте файл журнала, чтобы начать"
         : _allLines.Count == 0 ? "Файл пуст" : "Нет строк, соответствующих фильтрам";
     public string Status => _isBusy ? "Обработка…"
-        : $"Показано {_visibleLines.Count:N0} из {_allLines.Count:N0} строк · Фильтров: {_filters.Count}";
+        : $"Показано {DisplayLines.Count:N0} из {_allLines.Count:N0} строк · Совпадений: {_visibleLines.Count:N0} · Фильтров: {_filters.Count}";
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -41,10 +55,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             var result = await Task.Run(async () =>
             {
                 var lines = await LogFileReader.ReadAsync(stream);
-                return (All: lines, Visible: LogFilterEngine.Apply(lines, filters));
+                var visible = LogFilterEngine.Apply(lines, filters);
+                return (All: lines, Visible: visible, Rows: CreateRows(lines, visible));
             });
             _allLines = result.All;
             _visibleLines = result.Visible;
+            (_allRows, _matchingRows) = result.Rows;
             _fileName = fileName;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
@@ -72,9 +88,23 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             change();
             var filters = _filters.ToArray();
-            _visibleLines = await Task.Run(() => LogFilterEngine.Apply(_allLines, filters));
+            var result = await Task.Run(() =>
+            {
+                var visible = LogFilterEngine.Apply(_allLines, filters);
+                return (Visible: visible, Rows: CreateRows(_allLines, visible));
+            });
+            _visibleLines = result.Visible;
+            (_allRows, _matchingRows) = result.Rows;
         }
         finally { EndOperation(); }
+    }
+
+    private static (IReadOnlyList<LogLineRow> All, IReadOnlyList<LogLineRow> Matching) CreateRows(
+        IReadOnlyList<LogLine> all, IReadOnlyList<LogLine> matching)
+    {
+        var matchingNumbers = matching.Select(line => line.Number).ToHashSet();
+        var rows = all.Select(line => new LogLineRow(line, !matchingNumbers.Contains(line.Number))).ToArray();
+        return (rows, rows.Where(row => !row.IsFilteredOut).ToArray());
     }
 
     private void BeginOperation()

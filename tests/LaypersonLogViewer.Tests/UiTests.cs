@@ -4,6 +4,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using LaypersonLogViewer.App.ViewModels;
 using LaypersonLogViewer.App.Views;
 using LaypersonLogViewer.Core;
@@ -21,6 +22,41 @@ public static class TestAppBuilder
 public sealed class UiTests
 {
     private static void Click(Button button) => button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+    [AvaloniaFact]
+    public async Task DisplaySwitchRestoresContextAndDimsOnlyFilteredOutRows()
+    {
+        var window = new MainWindow();
+        window.Show();
+        try
+        {
+            var model = (MainWindowViewModel)window.DataContext!;
+            using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("INFO ready\nERROR failed"));
+            await model.LoadAsync("test.log", stream);
+            await model.AddFilterAsync(new LogFilter(FilterKind.Include, "ERROR"));
+            var list = window.FindControl<ListBox>("LogLines")!;
+            var toggle = window.FindControl<ToggleSwitch>("ShowFilteredOutSwitch")!;
+            Assert.Single(list.Items);
+
+            toggle.IsChecked = true;
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Assert.True(model.ShowFilteredOut);
+            Assert.Equal(2, list.Items.Count);
+            var rows = list.GetVisualDescendants().OfType<Grid>()
+                .Where(grid => grid.Name == "LineContent").OrderBy(grid => ((LogLineRow)grid.DataContext!).Number).ToArray();
+            Assert.Equal(2, rows.Length);
+            Assert.Equal(0.4, rows[0].Opacity);
+            Assert.Equal(1.0, rows[1].Opacity);
+
+            toggle.IsChecked = false;
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(model.ShowFilteredOut);
+            Assert.Equal(2, Assert.IsType<LogLineRow>(Assert.Single(list.Items)).Number);
+            Assert.Single(model.Filters);
+        }
+        finally { window.Close(); }
+    }
 
     [AvaloniaTheory]
     [InlineData("IncludeButton", FilterKind.Include)]
@@ -86,7 +122,7 @@ public sealed class UiTests
             await model.AddFilterAsync(new LogFilter(FilterKind.Include, "error"));
             Dispatcher.UIThread.RunJobs();
             var list = window.FindControl<ListBox>("LogLines")!;
-            var item = Assert.IsType<LogLine>(Assert.Single(list.Items));
+            var item = Assert.IsType<LogLineRow>(Assert.Single(list.Items));
             Assert.Equal(2, item.Number);
             Assert.Equal("ERROR failed", item.Text);
         }
