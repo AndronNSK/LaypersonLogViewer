@@ -49,7 +49,9 @@
             <DataTemplate x:DataType="vm:LogLineRow">
               <Grid Name="LineContent" ColumnDefinitions="64,*" ColumnSpacing="12" Opacity="{Binding Opacity}">
                 <TextBlock Text="{Binding Number}" Foreground="#738297" TextAlignment="Right" />
-                <TextBlock Grid.Column="1" Text="{Binding Text}" TextWrapping="NoWrap" />
+                <SelectableTextBlock Grid.Column="1" Text="{Binding Text}" TextWrapping="NoWrap"
+                                     Background="Transparent" Cursor="Ibeam" ContextRequested="LogText_ContextRequested"
+                                     DataContextChanged="LogText_DataContextChanged" />
               </Grid>
             </DataTemplate>
           </ListBox.ItemTemplate>

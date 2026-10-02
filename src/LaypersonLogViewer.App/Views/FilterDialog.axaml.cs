@@ -10,12 +10,14 @@ public partial class FilterDialog : Window
 
     public FilterDialog() : this(FilterKind.Include) { }
 
-    public FilterDialog(FilterKind kind)
+    public FilterDialog(FilterKind kind, string initialText = "")
     {
         _kind = kind;
         InitializeComponent();
         Title = kind == FilterKind.Include ? "Показать строки..." : "Скрыть строки";
         Heading.Text = Title;
+        PatternBox.Text = initialText;
+        AddButton.IsEnabled = !string.IsNullOrWhiteSpace(initialText);
         Opened += (_, _) => PatternBox.Focus();
     }
 

@@ -1,4 +1,6 @@
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using LaypersonLogViewer.App.ViewModels;
@@ -50,11 +52,46 @@ public partial class MainWindow : Window
     private async void Include_Click(object? sender, RoutedEventArgs e) => await AddFilterAsync(FilterKind.Include);
     private async void Exclude_Click(object? sender, RoutedEventArgs e) => await AddFilterAsync(FilterKind.Exclude);
 
-    private async Task AddFilterAsync(FilterKind kind)
+    private async Task AddFilterAsync(FilterKind kind, string initialText = "")
     {
         if (ViewModel.IsBusy) return;
-        var filter = await new FilterDialog(kind).ShowDialog<LogFilter?>(this);
+        var filter = await new FilterDialog(kind, initialText).ShowDialog<LogFilter?>(this);
         if (filter is not null) await ViewModel.AddFilterAsync(filter);
+    }
+
+    private void LogText_ContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (sender is not SelectableTextBlock text) return;
+        e.Handled = true;
+
+        // Keep the exact selection before opening a popup or dialog changes focus.
+        var selectedText = text.SelectedText;
+        var canAdd = !ViewModel.IsBusy && !string.IsNullOrWhiteSpace(selectedText);
+        var include = new MenuItem { Header = "Показать строки...", IsEnabled = canAdd };
+        var exclude = new MenuItem { Header = "Скрыть строки", IsEnabled = canAdd };
+        var menu = new ContextMenu
+        {
+            ItemsSource = new[] { include, exclude },
+            Placement = e.TryGetPosition(text, out _) ? PlacementMode.Pointer : PlacementMode.Bottom
+        };
+        include.Click += async (_, _) =>
+        {
+            menu.Close();
+            if (canAdd) await AddFilterAsync(FilterKind.Include, selectedText);
+        };
+        exclude.Click += async (_, _) =>
+        {
+            menu.Close();
+            if (canAdd) await AddFilterAsync(FilterKind.Exclude, selectedText);
+        };
+        text.ContextMenu = menu;
+        menu.Open(text);
+    }
+
+    private void LogText_DataContextChanged(object? sender, EventArgs e)
+    {
+        // Virtualized rows can be reused for another line after scrolling or filtering.
+        if (sender is SelectableTextBlock text) text.ClearSelection();
     }
 
     private async void Remove_Click(object? sender, RoutedEventArgs e)

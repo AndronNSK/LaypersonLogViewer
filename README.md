@@ -23,6 +23,10 @@ Open `samples/example.log` using **Открыть файл…**.
 - **Показать строки...** opens a dialog to add an include filter.
 - **Скрыть строки** opens a dialog to add an exclude filter.
 - Each filter searches for literal text and can optionally match case.
+- Select text within a log line, then right-click and choose **Показать строки...** or
+  **Скрыть строки** to open a filter dialog prefilled with that exact selection.
+  Confirm with **Добавить**, or cancel without changing the filters. This works on greyed-out
+  lines too. Empty or whitespace-only selections cannot create filters.
 - Add multiple filters, remove individual filters, or reset all filters.
 - Original line numbers and file order are preserved. Duplicate and empty lines are retained when they match the rules.
 - The switch above the log chooses how to display filtered-out lines: hide them (default)
