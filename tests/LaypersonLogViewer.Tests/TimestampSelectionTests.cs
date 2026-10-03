@@ -32,7 +32,7 @@ public sealed class TimestampSelectionTests
             await model.AddFilterAsync(new LogFilter(FilterKind.Include, "ERROR"));
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
-            var text = window.FindControl<ListBox>("LogLines")!.GetVisualDescendants().OfType<SelectableTextBlock>().First();
+            var text = window.FindControl<ListBox>("LogLines")!.GetVisualDescendants().OfType<TextBox>().First();
             text.Focus();
             // Reverse selection must produce the same start position.
             text.SelectionStart = 1 + stamp.Length;
@@ -42,7 +42,7 @@ public sealed class TimestampSelectionTests
             window.MouseDown(point, MouseButton.Right);
             window.MouseUp(point, MouseButton.Right);
             var menu = text.ContextMenu!;
-            var item = menu.Items.OfType<MenuItem>().Single(i => Equals(i.Header, "Начало записи по времени..."));
+            var item = menu.Items.OfType<MenuItem>().Single(i => Equals(i.Header, "Начало записи по времени…"));
             Assert.True(item.IsEnabled);
             item.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));

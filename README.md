@@ -23,11 +23,11 @@ Open `samples/example.log` using **Открыть файл…**.
 
 - One main window with a large, scrollable log pane and a smaller filter pane.
 - Drag the divider to adjust the pane sizes.
-- **Показать строки...** opens a dialog to add an include filter.
-- **Скрыть строки** opens a dialog to add an exclude filter.
+- **Показать строки…** opens a dialog to add an include filter.
+- **Скрыть строки…** opens a dialog to add an exclude filter.
 - Each filter searches for literal text and can optionally match case.
-- Select text within a log line, then right-click and choose **Показать строки...** or
-  **Скрыть строки** to open a filter dialog prefilled with that exact selection.
+- Select text within a log line, then right-click and choose **Показать строки…** or
+  **Скрыть строки…** to open a filter dialog prefilled with that exact selection.
   Confirm with **Добавить**, or cancel without changing the filters. This works on greyed-out
   lines too. Empty or whitespace-only selections cannot create filters.
 - Add multiple filters, remove individual filters, or reset all filters.
@@ -58,7 +58,7 @@ not regular expressions.
 
 1. Open `samples/multiline.log`.
 2. Select just `2026-10-03 12:34:56` in line 2, then right-click and choose
-   **Начало записи по времени...**.
+   **Начало записи по времени…**.
 3. The dialog previews `####-##-## ##:##:##` at position 1 and reports four matching
    entry starts in the full file. Each `#` generated from a digit represents any ASCII digit;
    separators, letters, spaces, and the selected starting position must match exactly.

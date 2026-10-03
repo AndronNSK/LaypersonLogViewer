@@ -6,7 +6,7 @@
   <StackPanel Margin="12" Spacing="8">
     <TextBlock Name="Heading" FontSize="15" FontWeight="SemiBold" />
     <TextBlock Text="Строка содержит текст:" />
-    <TextBox Name="PatternBox" PlaceholderText="Например: ERROR или ошибка" TextChanged="Pattern_Changed" />
+    <TextBox Name="PatternBox" IsReadOnly="False" PlaceholderText="Например: ERROR или ошибка" TextChanged="Pattern_Changed" />
     <CheckBox Name="CaseSensitiveBox" Content="Учитывать регистр" />
     <TextBlock Text="Поиск буквального текста, включая пробелы и знаки препинания."
                TextWrapping="Wrap" Foreground="#526174" FontSize="11" />

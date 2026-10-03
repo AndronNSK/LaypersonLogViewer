@@ -3,6 +3,8 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using LaypersonLogViewer.App.ViewModels;
 using LaypersonLogViewer.Core;
 
@@ -10,6 +12,8 @@ namespace LaypersonLogViewer.App.Views;
 
 public partial class MainWindow : Window
 {
+    private TextBox? _activeLogText;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -52,26 +56,47 @@ public partial class MainWindow : Window
     private async void Include_Click(object? sender, RoutedEventArgs e) => await AddFilterAsync(FilterKind.Include);
     private async void Exclude_Click(object? sender, RoutedEventArgs e) => await AddFilterAsync(FilterKind.Exclude);
 
-    private async Task AddFilterAsync(FilterKind kind, string initialText = "")
+    private async Task AddFilterAsync(FilterKind kind, string? initialText = null)
     {
         if (ViewModel.IsBusy) return;
+        initialText ??= LogLines.GetVisualDescendants().OfType<TextBox>()
+            .OrderByDescending(text => ReferenceEquals(text, _activeLogText))
+            .FirstOrDefault(text => text.SelectionStart != text.SelectionEnd)?.SelectedText ?? "";
         var filter = await new FilterDialog(kind, initialText).ShowDialog<LogFilter?>(this);
-        if (filter is not null) await ViewModel.AddFilterAsync(filter);
+        if (filter is null) return;
+
+        // TextBox keeps selection across focus changes; only the row rebuild needs help.
+        var selections = new Dictionary<LogLine, (int Start, int End)>(ReferenceEqualityComparer.Instance);
+        foreach (var text in LogLines.GetVisualDescendants().OfType<TextBox>())
+            if (text.DataContext is LogLineRow row && text.SelectionStart != text.SelectionEnd)
+                selections[row.Line] = (text.SelectionStart, text.SelectionEnd);
+
+        await ViewModel.AddFilterAsync(filter);
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            LogLines.UpdateLayout();
+            foreach (var text in LogLines.GetVisualDescendants().OfType<TextBox>())
+                if (text.DataContext is LogLineRow row && selections.TryGetValue(row.Line, out var selection))
+                {
+                    text.SelectionStart = selection.Start;
+                    text.SelectionEnd = selection.End;
+                }
+        }, DispatcherPriority.Loaded);
     }
 
     private void LogText_ContextRequested(object? sender, ContextRequestedEventArgs e)
     {
-        if (sender is not SelectableTextBlock text) return;
+        if (sender is not TextBox text) return;
         e.Handled = true;
 
         // Keep the exact selection before opening a popup or dialog changes focus.
         var selectedText = text.SelectedText;
         var canAdd = !ViewModel.IsBusy && !string.IsNullOrWhiteSpace(selectedText);
-        var include = new MenuItem { Header = "Показать строки...", IsEnabled = canAdd };
-        var exclude = new MenuItem { Header = "Скрыть строки", IsEnabled = canAdd };
+        var include = new MenuItem { Header = "Показать строки…", IsEnabled = canAdd };
+        var exclude = new MenuItem { Header = "Скрыть строки…", IsEnabled = canAdd };
         var selectionStart = Math.Min(text.SelectionStart, text.SelectionEnd);
         var canSetTimestamp = canAdd && selectedText.Any(char.IsAsciiDigit);
-        var timestamp = new MenuItem { Header = "Начало записи по времени...", IsEnabled = canSetTimestamp };
+        var timestamp = new MenuItem { Header = "Начало записи по времени…", IsEnabled = canSetTimestamp };
         var menu = new ContextMenu
         {
             ItemsSource = new[] { include, exclude, timestamp },
@@ -100,10 +125,12 @@ public partial class MainWindow : Window
         menu.Open(text);
     }
 
+    private void LogText_GotFocus(object? sender, RoutedEventArgs e) => _activeLogText = sender as TextBox;
+
     private void LogText_DataContextChanged(object? sender, EventArgs e)
     {
         // Virtualized rows can be reused for another line after scrolling or filtering.
-        if (sender is SelectableTextBlock text) text.ClearSelection();
+        if (sender is TextBox text) text.ClearSelection();
     }
 
     private async void Remove_Click(object? sender, RoutedEventArgs e)

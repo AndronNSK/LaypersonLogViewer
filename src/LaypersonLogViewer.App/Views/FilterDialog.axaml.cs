@@ -14,11 +14,15 @@ public partial class FilterDialog : Window
     {
         _kind = kind;
         InitializeComponent();
-        Title = kind == FilterKind.Include ? "Показать строки..." : "Скрыть строки";
+        Title = kind == FilterKind.Include ? "Показать строки" : "Скрыть строки";
         Heading.Text = Title;
         PatternBox.Text = initialText;
         AddButton.IsEnabled = !string.IsNullOrWhiteSpace(initialText);
-        Opened += (_, _) => PatternBox.Focus();
+        Opened += (_, _) =>
+        {
+            PatternBox.Focus();
+            PatternBox.SelectAll();
+        };
     }
 
     private void Pattern_Changed(object? sender, TextChangedEventArgs e)

@@ -46,7 +46,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public int MatchingEntryCount => _matchingEntryCount;
     public int TimestampStartCount => _timestampStartCount;
     public string GroupingDescription => _timestampPattern is null
-        ? "Построчно · Выделите время в строке → правая кнопка → «Начало записи по времени...»"
+        ? "Построчно · Выделите время в строке → правая кнопка → «Начало записи по времени…»"
         : $"Начало записи: {_timestampPattern.Shape} · Позиция: {_timestampPattern.StartIndex + 1} · Начал найдено: {_timestampStartCount}";
     public string GroupingWarning => HasTimestampPattern && _allLines.Count > 0 && _timestampStartCount == 0
         ? "Шаблон не найден: весь файл считается одной записью. Выберите другой образец или сбросьте шаблон." : "";

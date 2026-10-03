@@ -25,19 +25,17 @@
     <Border Grid.Row="1" Background="White" BorderBrush="#D9DFE8" BorderThickness="1" CornerRadius="4" ClipToBounds="True">
       <Grid RowDefinitions="Auto,*">
         <Border Background="#EAF0F6" Padding="8,4">
-          <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="2">
+          <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
             <TextBlock Text="СТРОКИ ЖУРНАЛА" FontSize="11" FontWeight="SemiBold" Foreground="#526174" VerticalAlignment="Center" />
-            <ToggleSwitch Grid.Column="1" Name="ShowFilteredOutSwitch"
+            <TextBlock Grid.Column="1" Text="{Binding GroupingDescription}" ToolTip.Tip="{Binding GroupingDescription}"
+                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center" FontSize="11" Foreground="#526174" />
+            <Button Grid.Column="2" Name="ResetTimestampButton" Content="Сбросить шаблон"
+                    IsVisible="{Binding HasTimestampPattern}" IsEnabled="{Binding !IsBusy}"
+                    VerticalAlignment="Center" Click="ResetTimestamp_Click" />
+            <ToggleSwitch Grid.Column="3" Name="ShowFilteredOutSwitch" VerticalAlignment="Center"
                           IsChecked="{Binding ShowFilteredOut, Mode=TwoWay}"
                           OffContent="Скрывать отфильтрованные" OnContent="Отфильтрованные — серым"
                           ToolTip.Tip="Показывать отфильтрованные строки серым, сохраняя контекст" />
-            <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-              <TextBlock Text="{Binding GroupingDescription}" ToolTip.Tip="{Binding GroupingDescription}"
-                         TextTrimming="CharacterEllipsis" VerticalAlignment="Center" FontSize="11" Foreground="#526174" />
-              <Button Grid.Column="1" Name="ResetTimestampButton" Content="Сбросить шаблон"
-                      IsVisible="{Binding HasTimestampPattern}" IsEnabled="{Binding !IsBusy}"
-                      Click="ResetTimestamp_Click" />
-            </Grid>
           </Grid>
         </Border>
         <ListBox Grid.Row="1" Name="LogLines" ItemsSource="{Binding DisplayLines}" BorderThickness="0"
@@ -45,6 +43,9 @@
                  FontSize="13" ScrollViewer.HorizontalScrollBarVisibility="Auto"
                  ScrollViewer.BringIntoViewOnFocusChange="False"
                  ScrollViewer.VerticalScrollBarVisibility="Visible" ScrollViewer.AllowAutoHide="False">
+          <ListBox.Resources>
+            <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
+          </ListBox.Resources>
           <ListBox.Styles>
             <Style Selector="ListBoxItem">
               <Setter Property="Padding" Value="6,0" />
@@ -57,9 +58,12 @@
               <Border BorderBrush="#D9DFE8" BorderThickness="{Binding SeparatorThickness}">
               <Grid Name="LineContent" ColumnDefinitions="64,*" ColumnSpacing="8" Opacity="{Binding Opacity}">
                 <TextBlock Text="{Binding Number}" Foreground="#738297" TextAlignment="Right" />
-                <SelectableTextBlock Grid.Column="1" Text="{Binding Text}" TextWrapping="NoWrap"
+                <TextBox Grid.Column="1" Text="{Binding Text, Mode=OneWay}" TextWrapping="NoWrap"
+                                     IsReadOnly="True" ClearSelectionOnLostFocus="False"
+                                     IsInactiveSelectionHighlightEnabled="True"
+                                     Padding="0" BorderThickness="0" MinHeight="0"
                                      Background="Transparent" Cursor="Ibeam" ContextRequested="LogText_ContextRequested"
-                                     DataContextChanged="LogText_DataContextChanged" />
+                                     GotFocus="LogText_GotFocus" DataContextChanged="LogText_DataContextChanged" />
               </Grid>
               </Border>
             </DataTemplate>
@@ -77,8 +81,8 @@
       <Grid RowDefinitions="Auto,Auto,*" RowSpacing="4">
         <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="4">
           <TextBlock Text="Фильтры" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" />
-          <Button Grid.Column="1" Name="IncludeButton" Content="Показать строки..." Click="Include_Click" IsEnabled="{Binding !IsBusy}" />
-          <Button Grid.Column="2" Name="ExcludeButton" Content="Скрыть строки" Click="Exclude_Click" IsEnabled="{Binding !IsBusy}" />
+          <Button Grid.Column="1" Name="IncludeButton" Content="Показать строки…" Click="Include_Click" IsEnabled="{Binding !IsBusy}" />
+          <Button Grid.Column="2" Name="ExcludeButton" Content="Скрыть строки…" Click="Exclude_Click" IsEnabled="{Binding !IsBusy}" />
           <Button Grid.Column="3" Content="Сбросить" Click="Clear_Click" IsEnabled="{Binding !IsBusy}" />
         </Grid>
         <TextBlock Grid.Row="1" Text="{Binding FilterExplanation}"
