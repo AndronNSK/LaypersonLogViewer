@@ -14,10 +14,20 @@ public partial class MainWindow : Window
 {
     private TextBox? _activeLogText;
 
-    public MainWindow()
+    public MainWindow() : this(null) { }
+
+    public MainWindow(IStatisticsSettingsStore? statisticsStore)
     {
         InitializeComponent();
-        DataContext = new MainWindowViewModel();
+        DataContext = new MainWindowViewModel(statisticsStore);
+        Closing += async (_, e) =>
+        {
+            if (ViewModel.Statistics.PendingSave.IsCompleted) return;
+            e.Cancel = true;
+            await ViewModel.Statistics.PendingSave;
+            Close();
+        };
+        Closed += (_, _) => ViewModel.Statistics.Dispose();
     }
 
     private MainWindowViewModel ViewModel => (MainWindowViewModel)DataContext!;
@@ -98,9 +108,11 @@ public partial class MainWindow : Window
         var selectionStart = Math.Min(text.SelectionStart, text.SelectionEnd);
         var canSetTimestamp = canAdd && selectedText.Any(char.IsAsciiDigit);
         var timestamp = new MenuItem { Header = "Начало записи по времени…", IsEnabled = canSetTimestamp };
+        var statistics = new MenuItem { Header = "Создать статистику…", IsEnabled = ViewModel.Statistics.IsReady };
+        var example = text.Text ?? "";
         var menu = new ContextMenu
         {
-            ItemsSource = new[] { include, exclude, timestamp },
+            ItemsSource = new[] { include, exclude, timestamp, statistics },
             Placement = e.TryGetPosition(text, out _) ? PlacementMode.Pointer : PlacementMode.Bottom
         };
         include.Click += async (_, _) =>
@@ -122,11 +134,27 @@ public partial class MainWindow : Window
             var accepted = await new TimestampPatternDialog(pattern, count).ShowDialog<TimestampPattern?>(this);
             if (accepted is not null) await ViewModel.SetTimestampPatternAsync(accepted);
         };
+        statistics.Click += async (_, _) =>
+        {
+            menu.Close();
+            await EditStatisticsAsync(example: example);
+        };
         text.ContextMenu = menu;
         menu.Open(text);
     }
 
     private void LogText_GotFocus(object? sender, RoutedEventArgs e) => _activeLogText = sender as TextBox;
+
+    public async Task EditStatisticsAsync(StatisticsPattern? pattern = null, string? example = null)
+    {
+        await ViewModel.Statistics.Initialization;
+        example ??= _activeLogText?.DataContext is LogLineRow row ? row.Text : "";
+        var dialog = new StatisticsPatternDialog(example, ViewModel.Statistics.SourceLines, pattern);
+        var accepted = await dialog.ShowDialog<StatisticsPattern?>(this);
+        if (accepted is null) return;
+        ViewModel.Statistics.SavePattern(accepted);
+        LowerTabs.SelectedIndex = 1;
+    }
 
     private void LogText_DataContextChanged(object? sender, EventArgs e)
     {

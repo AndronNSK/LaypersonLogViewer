@@ -1,0 +1,57 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:LaypersonLogViewer.App.ViewModels"
+        x:Class="LaypersonLogViewer.App.Views.StatisticsPatternDialog" x:DataType="vm:StatisticsEditorViewModel"
+        Title="Шаблон статистики" Width="820" Height="680" MinWidth="620" MinHeight="460"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+  <Grid Margin="12" RowDefinitions="*,Auto" RowSpacing="8">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel Spacing="6">
+        <TextBlock Text="Название шаблона" />
+        <TextBox Name="PatternNameBox" Text="{Binding Name, Mode=TwoWay}" />
+        <TextBlock Text="Выделите в примере постоянный текст и числовые значения:" />
+        <TextBox Name="ExampleBox" Text="{Binding Example, Mode=OneWay}" IsReadOnly="True"
+                 ClearSelectionOnLostFocus="False" IsInactiveSelectionHighlightEnabled="True"
+                 FontFamily="Consolas, monospace" TextWrapping="NoWrap" />
+        <TextBlock Name="MarkedExample" FontFamily="Consolas, monospace" TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <Button Name="AnchorButton" Content="Постоянный текст" Click="Anchor_Click" IsEnabled="{Binding CanMark}" />
+          <Button Name="NumberButton" Content="Числовое значение…" Click="Number_Click" IsEnabled="{Binding CanMark}" />
+        </StackPanel>
+        <ItemsControl ItemsSource="{Binding Ranges}" IsEnabled="{Binding !ManualRegex}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:StatisticsRangeRow">
+              <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                <TextBlock Text="{Binding Description}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Description}" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Content="Удалить" Click="RemoveRange_Click" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <CheckBox Name="ManualRegexBox" Content="Редактировать regex" Click="ManualRegex_Click" />
+          <CheckBox Name="CaseSensitiveBox" Content="Учитывать регистр" IsChecked="{Binding CaseSensitive, Mode=TwoWay}" />
+        </StackPanel>
+        <TextBox Name="RegexBox" Text="{Binding Expression, Mode=TwoWay}" IsReadOnly="{Binding !ManualRegex}"
+                 FontFamily="Consolas, monospace" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" />
+        <TextBlock Text="Именованные группы — числовые значения, например (?&lt;duration&gt;[0-9]+). Первое совпадение в каждой строке." TextWrapping="Wrap" FontSize="11" />
+        <ItemsControl ItemsSource="{Binding Values}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:StatisticsValueEditor">
+              <Grid ColumnDefinitions="120,*" ColumnSpacing="6" Margin="0,2">
+                <TextBlock Text="{Binding GroupName}" VerticalAlignment="Center" />
+                <TextBox Grid.Column="1" Text="{Binding DisplayName, Mode=TwoWay}" PlaceholderText="Название значения" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Text="{Binding Error}" Foreground="#B42318" TextWrapping="Wrap" />
+        <TextBlock Text="Предпросмотр по выбранной области журнала" FontWeight="SemiBold" />
+        <TextBlock Name="PreviewText" Text="{Binding PreviewText}" TextWrapping="Wrap" />
+      </StackPanel>
+    </ScrollViewer>
+    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6">
+      <Button Name="CancelButton" Content="Отмена" IsCancel="True" Click="Cancel_Click" />
+      <Button Name="SaveButton" Content="Сохранить" IsDefault="True" IsEnabled="{Binding CanSave}" Click="Save_Click" />
+    </StackPanel>
+  </Grid>
+</Window>

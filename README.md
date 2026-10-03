@@ -100,6 +100,42 @@ when their length varies. Filter text is searched within each physical line, nev
 line breaks. Other timestamps in the middle of a message do not start an entry unless they
 match the same shape at the selected position.
 
+### Statistics from regex captures
+
+The lower pane has **Фильтры** and **Статистика** tabs. Open a log, right-click a line,
+and choose **Создать статистику…**. The editor receives the complete line, even if only
+a substring was selected. **Добавить шаблон…** on the statistics tab also opens the editor.
+
+For `Request completed: duration=125.4 ms, size=2048 bytes`:
+
+1. Mark `Request completed: duration=` as **Постоянный текст**.
+2. Mark `125.4` as **Числовое значение…**, named `Duration`.
+3. Mark ` ms, size=` as another constant and `2048` as a value named `Size`.
+4. Check the preview and save. Anchors are blue; numeric ranges are green. Unmarked gaps
+   may vary. Each numeric group has an editable display name.
+
+Each pattern expands into separate value rows showing count, mean, minimum, maximum,
+and exact median. Hover for full precision and skipped-value counts. Results use the
+first regex match in each physical line. Invalid or missing numeric captures are skipped;
+unmatched lines do not count. Signed integers, dot/comma decimals, and exponents are
+supported, with no thousands separators or unit conversion.
+
+**Редактировать regex** enables advanced editing using named groups such as
+`duration=(?<duration>[0-9]+(?:[.,][0-9]+)?)`. Unnamed groups do not create statistics.
+Returning to the visual builder asks before replacing manual edits. Matching stays
+within a physical line; timestamp grouping affects which lines pass the filters.
+
+Choose **После фильтрации** (default) or **Весь файл**. Filtered-out grey lines are excluded
+from filtered statistics. Calculations refresh in the background after patterns, scope,
+filters, grouping, or the loaded file change. Regexes have a 100 ms per-line timeout;
+a failed pattern shows an error instead of partial results, while other patterns continue.
+
+Pattern definitions, example lines, markings, names, and scope are saved automatically to
+`%LOCALAPPDATA%/LaypersonLogViewer/statistics.json`. Results and captured values are not
+saved. Settings are restored at startup; opening a file calculates fresh results. A corrupt
+settings file is retained as a `.corrupt-*` backup when new settings are saved.
+Filters still remain session-only. Tests inject an in-memory store or a temporary directory.
+
 ## Tests
 
 ```powershell
@@ -183,7 +219,7 @@ iteration, so the binding and notification code is visible and easy to follow.
   operations cannot yet be cancelled from the UI.
 - UTF-8 is the default. UTF-8, UTF-16, and UTF-32 byte-order marks are detected. Legacy
   encodings such as Windows-1251 need a future encoding selector.
-- Filters live only for the current session. Regex, time/level filters, saved presets,
+- Filters live only for the current session. Regex-based filtering, time/level filters, saved filter presets,
   live tailing, and filter editing are possible follow-up iterations.
 - Without a timestamp pattern, each physical line is independent. With a pattern, lines
   are grouped into entries; individual fields such as timestamp values and severity are not parsed.

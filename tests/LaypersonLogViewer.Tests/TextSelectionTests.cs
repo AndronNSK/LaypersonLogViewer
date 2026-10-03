@@ -222,7 +222,7 @@ public sealed class TextSelectionTests
             text.SelectionStart = start;
             text.SelectionEnd = end;
             var menu = OpenMenu(window, text);
-            Assert.All(menu.Items.OfType<MenuItem>(), item => Assert.False(item.IsEnabled));
+            Assert.All(menu.Items.OfType<MenuItem>().Take(3), item => Assert.False(item.IsEnabled));
             menu.Close();
             Assert.Empty(((MainWindowViewModel)window.DataContext!).Filters);
         }

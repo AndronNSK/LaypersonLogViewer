@@ -20,7 +20,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private int _matchingEntryCount;
     private int _timestampStartCount;
 
-    public MainWindowViewModel() => Filters = new ReadOnlyObservableCollection<LogFilter>(_filters);
+    public MainWindowViewModel(IStatisticsSettingsStore? statisticsStore = null)
+    {
+        Filters = new ReadOnlyObservableCollection<LogFilter>(_filters);
+        Statistics = new StatisticsViewModel(statisticsStore);
+    }
+
+    public StatisticsViewModel Statistics { get; }
 
     public ReadOnlyObservableCollection<LogFilter> Filters { get; }
     public IReadOnlyList<LogLine> VisibleLines => _visibleLines;
@@ -77,8 +83,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 return (All: lines, Projection: BuildProjection(lines, filters, _timestampPattern));
             });
             _allLines = result.All;
-            ApplyProjection(result.Projection);
             _fileName = fileName;
+            ApplyProjection(result.Projection);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
                                          or System.Text.DecoderFallbackException)
@@ -187,6 +193,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         _entryCount = projection.Entries;
         _matchingEntryCount = projection.MatchingEntries;
         _timestampStartCount = projection.TimestampStarts;
+        Statistics.SetSources(_allLines, _visibleLines, _fileName is not null);
     }
 
     private void BeginOperation()

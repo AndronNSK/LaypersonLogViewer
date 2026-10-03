@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:LaypersonLogViewer.App.ViewModels"
         xmlns:core="using:LaypersonLogViewer.Core"
+        xmlns:views="using:LaypersonLogViewer.App.Views"
         x:Class="LaypersonLogViewer.App.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="Layperson · Просмотр журналов" Width="1120" Height="780"
@@ -11,7 +12,7 @@
       <RowDefinition Height="Auto" />
       <RowDefinition Height="*" MinHeight="140" />
       <RowDefinition Height="Auto" />
-      <RowDefinition Height="160" MinHeight="120" />
+      <RowDefinition Height="210" MinHeight="150" />
       <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
@@ -78,6 +79,8 @@
                   ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" />
 
     <Border Grid.Row="3" Background="White" CornerRadius="4" BorderBrush="#D9DFE8" BorderThickness="1" Padding="8">
+      <TabControl Name="LowerTabs">
+        <TabItem Header="Фильтры">
       <Grid RowDefinitions="Auto,Auto,*" RowSpacing="4">
         <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="4">
           <TextBlock Text="Фильтры" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" />
@@ -126,6 +129,11 @@
                      IsHitTestVisible="False" Foreground="#738297" VerticalAlignment="Center" HorizontalAlignment="Center" />
         </Grid>
       </Grid>
+        </TabItem>
+        <TabItem Header="Статистика" Name="StatisticsTab">
+          <views:StatisticsPanel DataContext="{Binding Statistics}" />
+        </TabItem>
+      </TabControl>
     </Border>
 
     <StackPanel Grid.Row="4" Spacing="2">
