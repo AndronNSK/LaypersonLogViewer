@@ -56,13 +56,13 @@ public partial class MainWindow : Window
     private async void Include_Click(object? sender, RoutedEventArgs e) => await AddFilterAsync(FilterKind.Include);
     private async void Exclude_Click(object? sender, RoutedEventArgs e) => await AddFilterAsync(FilterKind.Exclude);
 
-    private async Task AddFilterAsync(FilterKind kind, string? initialText = null)
+    private async Task AddFilterAsync(FilterKind kind, string? initialText = null, LogFilter? parent = null)
     {
         if (ViewModel.IsBusy) return;
         initialText ??= LogLines.GetVisualDescendants().OfType<TextBox>()
             .OrderByDescending(text => ReferenceEquals(text, _activeLogText))
             .FirstOrDefault(text => text.SelectionStart != text.SelectionEnd)?.SelectedText ?? "";
-        var filter = await new FilterDialog(kind, initialText).ShowDialog<LogFilter?>(this);
+        var filter = await new FilterDialog(kind, initialText, addingCondition: parent is not null).ShowDialog<LogFilter?>(this);
         if (filter is null) return;
 
         // TextBox keeps selection across focus changes; only the row rebuild needs help.
@@ -71,7 +71,8 @@ public partial class MainWindow : Window
             if (text.DataContext is LogLineRow row && text.SelectionStart != text.SelectionEnd)
                 selections[row.Line] = (text.SelectionStart, text.SelectionEnd);
 
-        await ViewModel.AddFilterAsync(filter);
+        if (parent is null) await ViewModel.AddFilterAsync(filter);
+        else await ViewModel.AddConditionAsync(parent, filter.Condition);
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
             LogLines.UpdateLayout();
@@ -137,6 +138,20 @@ public partial class MainWindow : Window
     {
         if (!ViewModel.IsBusy && sender is Button { DataContext: LogFilter filter })
             await ViewModel.RemoveFilterAsync(filter);
+    }
+
+    private async void AddCondition_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: LogFilter parent })
+            await AddFilterAsync(parent.Kind, parent: parent);
+    }
+
+    private async void RemoveCondition_Click(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel.IsBusy || sender is not Button { DataContext: LogFilterCondition condition } button) return;
+        var parent = button.GetVisualAncestors().OfType<Control>()
+            .Select(control => control.DataContext).OfType<LogFilter>().FirstOrDefault();
+        if (parent is not null) await ViewModel.RemoveConditionAsync(parent, condition);
     }
 
     private async void Clear_Click(object? sender, RoutedEventArgs e)

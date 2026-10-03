@@ -12,19 +12,10 @@ public static class LogFilterEngine
         var result = new List<LogEntry>();
         foreach (var entry in entries)
         {
-            var included = includes.Length == 0;
-            var excluded = false;
-            foreach (var line in entry.Lines)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                included |= includes.Any(f => f.Matches(line.Text));
-                if (excludes.Any(f => f.Matches(line.Text)))
-                {
-                    excluded = true;
-                    break;
-                }
-            }
-            if (included && !excluded) result.Add(entry);
+            cancellationToken.ThrowIfCancellationRequested();
+            if ((includes.Length == 0 || includes.Any(f => f.Matches(entry, cancellationToken)))
+                && !excludes.Any(f => f.Matches(entry, cancellationToken)))
+                result.Add(entry);
         }
         return result;
     }

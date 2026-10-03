@@ -5,21 +5,45 @@ public enum FilterKind { Include, Exclude }
 public sealed class LogFilter
 {
     public FilterKind Kind { get; }
-    public string Text { get; }
-    public bool CaseSensitive { get; }
+    public LogFilterCondition Condition { get; }
+    public IReadOnlyList<LogFilterCondition> AdditionalConditions { get; }
+    public string Text => Condition.Text;
+    public bool CaseSensitive => Condition.CaseSensitive;
     public string KindLabel => Kind == FilterKind.Include ? "Показать" : "Скрыть";
-    public string CaseLabel => CaseSensitive ? "С учётом регистра" : "Без учёта регистра";
+    public string CaseLabel => Condition.CaseLabel;
 
     public LogFilter(FilterKind kind, string text, bool caseSensitive = false)
+        : this(kind, new LogFilterCondition(text, caseSensitive), []) { }
+
+    public LogFilter(FilterKind kind, LogFilterCondition condition,
+        IEnumerable<LogFilterCondition> additionalConditions)
     {
         if (!Enum.IsDefined(kind))
             throw new ArgumentOutOfRangeException(nameof(kind));
-        ArgumentException.ThrowIfNullOrWhiteSpace(text);
+        ArgumentNullException.ThrowIfNull(condition);
+        ArgumentNullException.ThrowIfNull(additionalConditions);
         Kind = kind;
-        Text = text; // Preserve intentional spaces around the search term.
-        CaseSensitive = caseSensitive;
+        Condition = condition;
+        var children = additionalConditions.ToArray();
+        if (children.Any(child => child is null)) throw new ArgumentException("Conditions cannot be null.", nameof(additionalConditions));
+        AdditionalConditions = Array.AsReadOnly(children);
     }
 
-    public bool Matches(string line) => line.Contains(Text,
-        CaseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase);
+    public bool Matches(string line) => Condition.Matches(line)
+        && AdditionalConditions.All(condition => condition.Matches(line));
+
+    public bool Matches(LogEntry entry, CancellationToken cancellationToken = default)
+    {
+        bool MatchesCondition(LogFilterCondition condition)
+        {
+            foreach (var line in entry.Lines)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (condition.Matches(line.Text)) return true;
+            }
+            return false;
+        }
+
+        return MatchesCondition(Condition) && AdditionalConditions.All(MatchesCondition);
+    }
 }

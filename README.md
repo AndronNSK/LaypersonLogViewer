@@ -47,6 +47,24 @@ Open `samples/example.log` using **Открыть файл…**.
 A line is shown if **there are no include filters, or at least one include filter matches**,
 and **no exclude filter matches**. An exclude filter wins over an include filter.
 
+Each filter is a group: its original condition and all child conditions must match (**AND**).
+Use **Добавить условие…** beside a filter to add a child. The dialog uses selected log text
+when available, and lets you edit it and choose case sensitivity independently.
+Children appear indented as **И содержит**. Deleting a child removes only that condition;
+deleting its parent removes the whole group. The status counts groups.
+
+For example, include `ERROR` with children `database` and `timeout`, include `WARN`
+as a separate group, and exclude `healthcheck`:
+
+```text
+((ERROR AND database AND timeout) OR WARN) AND NOT healthcheck
+```
+
+In line mode all conditions must match the same line. With timestamp grouping, they may
+match different lines within the same entry, but never different entries. Exclusion groups
+also use AND: excluding `DEBUG` with child `heartbeat` hides only entries matching both.
+Children have one level; nested groups are not supported.
+
 Example: add include filters `ERROR` and `WARN`, then exclude `localhost`.
 The sample file shows lines **4 and 5**. Resetting filters restores all eight lines.
 

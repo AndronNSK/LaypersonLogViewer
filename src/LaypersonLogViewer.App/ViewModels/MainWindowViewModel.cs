@@ -52,8 +52,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         ? "Шаблон не найден: весь файл считается одной записью. Выберите другой образец или сбросьте шаблон." : "";
     public bool HasGroupingWarning => GroupingWarning.Length > 0;
     public string FilterExplanation => HasTimestampPattern
-        ? "Фильтры действуют на всю запись. Любое исключающее совпадение скрывает запись целиком."
-        : "Показать: любое совпадение. Скрыть: исключить при любом совпадении.";
+        ? "В группе — все условия в одной записи. Между группами — ИЛИ. «Скрыть» имеет приоритет."
+        : "В группе — все условия в одной строке. Между группами — ИЛИ. «Скрыть» имеет приоритет.";
     public bool IsEmpty => DisplayLines.Count == 0;
     public string EmptyMessage => _fileName is null ? "Откройте файл журнала, чтобы начать"
         : _allLines.Count == 0 ? "Файл пуст" : "Нет строк, соответствующих фильтрам";
@@ -91,6 +91,21 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public Task AddFilterAsync(LogFilter filter) => ChangeFiltersAsync(() => _filters.Add(filter));
     public Task RemoveFilterAsync(LogFilter filter) => ChangeFiltersAsync(() => _filters.Remove(filter));
     public Task ClearFiltersAsync() => ChangeFiltersAsync(_filters.Clear);
+
+    public Task AddConditionAsync(LogFilter parent, LogFilterCondition condition) => ChangeFiltersAsync(() =>
+    {
+        var index = _filters.IndexOf(parent);
+        if (index >= 0)
+            _filters[index] = new LogFilter(parent.Kind, parent.Condition, parent.AdditionalConditions.Append(condition));
+    });
+
+    public Task RemoveConditionAsync(LogFilter parent, LogFilterCondition condition) => ChangeFiltersAsync(() =>
+    {
+        var index = _filters.IndexOf(parent);
+        if (index >= 0)
+            _filters[index] = new LogFilter(parent.Kind, parent.Condition,
+                parent.AdditionalConditions.Where(child => !ReferenceEquals(child, condition)));
+    });
 
     public async Task SetTimestampPatternAsync(TimestampPattern? pattern)
     {

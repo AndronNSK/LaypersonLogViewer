@@ -93,12 +93,30 @@
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="core:LogFilter">
                   <Border Background="#F3F5F8" CornerRadius="3" Padding="6,2" Margin="0,0,0,2">
-                    <Grid ColumnDefinitions="70,*,140,Auto" ColumnSpacing="6">
+                    <StackPanel Spacing="2">
+                    <Grid ColumnDefinitions="70,*,140,Auto,Auto" ColumnSpacing="6">
                       <TextBlock Text="{Binding KindLabel}" FontWeight="SemiBold" VerticalAlignment="Center" />
                       <TextBlock Grid.Column="1" Text="{Binding Text}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip.Tip="{Binding Text}" />
                       <TextBlock Grid.Column="2" Text="{Binding CaseLabel}" FontSize="11" Foreground="#526174" VerticalAlignment="Center" />
-                      <Button Grid.Column="3" Content="Удалить" Click="Remove_Click" Padding="8,2" />
+                      <Button Grid.Column="3" Name="AddConditionButton" Content="Добавить условие…" Click="AddCondition_Click" Padding="8,2" />
+                      <Button Grid.Column="4" Name="RemoveFilterButton" Content="Удалить" Click="Remove_Click" Padding="8,2" />
                     </Grid>
+                    <ItemsControl ItemsSource="{Binding AdditionalConditions}" Margin="20,0,0,0">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="core:LogFilterCondition">
+                          <Grid ColumnDefinitions="90,*,140,Auto" ColumnSpacing="6" Margin="0,2,0,0">
+                            <TextBlock Text="И содержит" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" Text="{Binding Text}" TextTrimming="CharacterEllipsis"
+                                       ToolTip.Tip="{Binding Text}" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="2" Text="{Binding CaseLabel}" FontSize="11"
+                                       Foreground="#526174" VerticalAlignment="Center" />
+                            <Button Grid.Column="3" Name="RemoveConditionButton" Content="Удалить"
+                                    Click="RemoveCondition_Click" Padding="8,2" />
+                          </Grid>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    </StackPanel>
                   </Border>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
