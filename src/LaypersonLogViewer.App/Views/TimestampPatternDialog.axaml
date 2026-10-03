@@ -3,8 +3,8 @@
         x:Class="LaypersonLogViewer.App.Views.TimestampPatternDialog"
         Title="Начало записи по времени" Width="580" SizeToContent="Height"
         CanResize="False" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
-  <StackPanel Margin="24" Spacing="14">
-    <TextBlock Text="Начало записи по времени" FontSize="20" FontWeight="SemiBold" />
+  <StackPanel Margin="12" Spacing="8">
+    <TextBlock Text="Начало записи по времени" FontSize="15" FontWeight="SemiBold" />
     <TextBlock Text="Выделенный образец:" />
     <TextBox Name="ExampleBox" IsReadOnly="True" FontFamily="Consolas, monospace" />
     <TextBlock Name="PatternDescription" TextWrapping="Wrap" FontFamily="Consolas, monospace" />
@@ -14,8 +14,8 @@
     <TextBlock Text="Совпавшая строка начинает новую запись. Следующие строки относятся к ней до нового совпадения. Фильтры будут применяться ко всей записи; исключение в любой строке скрывает запись целиком."
                TextWrapping="Wrap" />
     <TextBlock Text="Выбирайте временную метку с постоянным числом символов. Если образец выбран неверно, отмените диалог и выделите время заново."
-               TextWrapping="Wrap" FontSize="12" Foreground="#526174" />
-    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+               TextWrapping="Wrap" FontSize="11" Foreground="#526174" />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="4">
       <Button Name="CancelButton" Content="Отмена" IsCancel="True" Click="Cancel_Click" />
       <Button Name="ApplyButton" Content="Применить" IsDefault="True" Click="Apply_Click" />
     </StackPanel>

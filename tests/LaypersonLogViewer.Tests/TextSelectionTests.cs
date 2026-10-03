@@ -134,6 +134,41 @@ public sealed class TextSelectionTests
     }
 
     [AvaloniaFact]
+    public async Task ClickingLongLinesPreservesHorizontalOffsetAndAllowsSelection()
+    {
+        var window = new MainWindow();
+        window.Show();
+        try
+        {
+            await Load(window, new string('A', 500) + "\n" + new string('B', 500));
+            var list = window.FindControl<ListBox>("LogLines")!;
+            var scroll = list.GetVisualDescendants().OfType<ScrollViewer>().Single();
+            window.MouseMove(new Point(0, 0));
+            Assert.True(scroll.Extent.Width > scroll.Viewport.Width);
+            var texts = list.GetVisualDescendants().OfType<SelectableTextBlock>().ToArray();
+            foreach (var offset in new[] { 0.0, 200.0 })
+            {
+                scroll.Offset = new Vector(offset, 0);
+                window.MouseMove(new Point(0, 0));
+                foreach (var text in texts)
+                {
+                    var start = text.TranslatePoint(new Point(offset + 20, 5), window)!.Value;
+                    window.MouseDown(start, MouseButton.Left);
+                    window.MouseUp(start, MouseButton.Left);
+                    Assert.Equal(offset, scroll.Offset.X, precision: 3);
+                    var end = start + new Vector(60, 0);
+                    window.MouseDown(start, MouseButton.Left);
+                    window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+                    window.MouseUp(end, MouseButton.Left);
+                    Assert.NotEmpty(text.SelectedText);
+                    Assert.Equal(offset, scroll.Offset.X, precision: 3);
+                }
+            }
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
     public async Task MouseDragSelectsTextWithoutChangingLogContents()
     {
         var window = new MainWindow();

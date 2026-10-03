@@ -3,14 +3,14 @@
         x:Class="LaypersonLogViewer.App.Views.FilterDialog"
         Width="500" SizeToContent="Height" CanResize="False"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
-  <StackPanel Margin="24" Spacing="14">
-    <TextBlock Name="Heading" FontSize="20" FontWeight="SemiBold" />
+  <StackPanel Margin="12" Spacing="8">
+    <TextBlock Name="Heading" FontSize="15" FontWeight="SemiBold" />
     <TextBlock Text="Строка содержит текст:" />
     <TextBox Name="PatternBox" PlaceholderText="Например: ERROR или ошибка" TextChanged="Pattern_Changed" />
     <CheckBox Name="CaseSensitiveBox" Content="Учитывать регистр" />
     <TextBlock Text="Поиск буквального текста, включая пробелы и знаки препинания."
-               TextWrapping="Wrap" Foreground="#526174" FontSize="12" />
-    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+               TextWrapping="Wrap" Foreground="#526174" FontSize="11" />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="4">
       <Button Name="CancelButton" Content="Отмена" IsCancel="True" Click="Cancel_Click" />
       <Button Name="AddButton" Content="Добавить" IsDefault="True" IsEnabled="False" Click="Add_Click" />
     </StackPanel>

@@ -3,9 +3,17 @@
              x:Class="LaypersonLogViewer.App.App"
              RequestedThemeVariant="Light">
   <Application.Styles>
-    <FluentTheme />
+    <FluentTheme DensityStyle="Compact" />
+    <Style Selector="Window">
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="Button, ToggleSwitch, CheckBox, MenuItem">
+      <Setter Property="FontSize" Value="12" />
+    </Style>
     <Style Selector="Button">
       <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Padding" Value="8,3" />
+      <Setter Property="MinHeight" Value="26" />
     </Style>
   </Application.Styles>
 </Application>
