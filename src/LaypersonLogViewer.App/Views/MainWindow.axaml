@@ -26,12 +26,19 @@
     <Border Grid.Row="1" Background="White" BorderBrush="#D9DFE8" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
       <Grid RowDefinitions="Auto,*">
         <Border Background="#EAF0F6" Padding="14,9">
-          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+          <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="16" RowSpacing="8">
             <TextBlock Text="СТРОКИ ЖУРНАЛА" FontSize="11" FontWeight="SemiBold" Foreground="#526174" VerticalAlignment="Center" />
             <ToggleSwitch Grid.Column="1" Name="ShowFilteredOutSwitch"
                           IsChecked="{Binding ShowFilteredOut, Mode=TwoWay}"
                           OffContent="Скрывать отфильтрованные" OnContent="Отфильтрованные — серым"
                           ToolTip.Tip="Показывать отфильтрованные строки серым, сохраняя контекст" />
+            <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+              <TextBlock Text="{Binding GroupingDescription}" ToolTip.Tip="{Binding GroupingDescription}"
+                         TextTrimming="CharacterEllipsis" VerticalAlignment="Center" FontSize="12" Foreground="#526174" />
+              <Button Grid.Column="1" Name="ResetTimestampButton" Content="Сбросить шаблон"
+                      IsVisible="{Binding HasTimestampPattern}" IsEnabled="{Binding !IsBusy}"
+                      Click="ResetTimestamp_Click" Padding="10,4" />
+            </Grid>
           </Grid>
         </Border>
         <ListBox Grid.Row="1" Name="LogLines" ItemsSource="{Binding DisplayLines}" BorderThickness="0"
@@ -47,12 +54,14 @@
           </ListBox.Styles>
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="vm:LogLineRow">
+              <Border BorderBrush="#D9DFE8" BorderThickness="{Binding SeparatorThickness}">
               <Grid Name="LineContent" ColumnDefinitions="64,*" ColumnSpacing="12" Opacity="{Binding Opacity}">
                 <TextBlock Text="{Binding Number}" Foreground="#738297" TextAlignment="Right" />
                 <SelectableTextBlock Grid.Column="1" Text="{Binding Text}" TextWrapping="NoWrap"
                                      Background="Transparent" Cursor="Ibeam" ContextRequested="LogText_ContextRequested"
                                      DataContextChanged="LogText_DataContextChanged" />
               </Grid>
+              </Border>
             </DataTemplate>
           </ListBox.ItemTemplate>
         </ListBox>
@@ -72,7 +81,7 @@
           <Button Grid.Column="2" Name="ExcludeButton" Content="Скрыть строки" Click="Exclude_Click" IsEnabled="{Binding !IsBusy}" />
           <Button Grid.Column="3" Content="Сбросить" Click="Clear_Click" IsEnabled="{Binding !IsBusy}" />
         </Grid>
-        <TextBlock Grid.Row="1" Text="Показать: любое совпадение. Скрыть: исключить при любом совпадении."
+        <TextBlock Grid.Row="1" Text="{Binding FilterExplanation}"
                    FontSize="12" Foreground="#526174" TextWrapping="Wrap" />
         <Grid Grid.Row="2">
           <ScrollViewer VerticalScrollBarVisibility="Visible" AllowAutoHide="False">
@@ -98,7 +107,8 @@
     </Border>
 
     <StackPanel Grid.Row="4" Spacing="4">
-      <TextBlock Text="{Binding Status}" Foreground="#526174" FontSize="12" />
+      <TextBlock Text="{Binding Status}" Foreground="#526174" FontSize="12" TextWrapping="Wrap" />
+      <TextBlock Text="{Binding GroupingWarning}" IsVisible="{Binding HasGroupingWarning}" Foreground="#986000" TextWrapping="Wrap" />
       <TextBlock Text="{Binding Error}" IsVisible="{Binding HasError}" Foreground="#B42318" TextWrapping="Wrap" />
     </StackPanel>
   </Grid>

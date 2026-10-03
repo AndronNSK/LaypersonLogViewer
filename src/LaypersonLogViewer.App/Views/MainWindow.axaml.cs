@@ -69,9 +69,12 @@ public partial class MainWindow : Window
         var canAdd = !ViewModel.IsBusy && !string.IsNullOrWhiteSpace(selectedText);
         var include = new MenuItem { Header = "Показать строки...", IsEnabled = canAdd };
         var exclude = new MenuItem { Header = "Скрыть строки", IsEnabled = canAdd };
+        var selectionStart = Math.Min(text.SelectionStart, text.SelectionEnd);
+        var canSetTimestamp = canAdd && selectedText.Any(char.IsAsciiDigit);
+        var timestamp = new MenuItem { Header = "Начало записи по времени...", IsEnabled = canSetTimestamp };
         var menu = new ContextMenu
         {
-            ItemsSource = new[] { include, exclude },
+            ItemsSource = new[] { include, exclude, timestamp },
             Placement = e.TryGetPosition(text, out _) ? PlacementMode.Pointer : PlacementMode.Bottom
         };
         include.Click += async (_, _) =>
@@ -83,6 +86,15 @@ public partial class MainWindow : Window
         {
             menu.Close();
             if (canAdd) await AddFilterAsync(FilterKind.Exclude, selectedText);
+        };
+        timestamp.Click += async (_, _) =>
+        {
+            menu.Close();
+            if (!canSetTimestamp || ViewModel.IsBusy) return;
+            var pattern = new TimestampPattern(selectedText, selectionStart);
+            var count = await ViewModel.PreviewTimestampPatternAsync(pattern);
+            var accepted = await new TimestampPatternDialog(pattern, count).ShowDialog<TimestampPattern?>(this);
+            if (accepted is not null) await ViewModel.SetTimestampPatternAsync(accepted);
         };
         text.ContextMenu = menu;
         menu.Open(text);
@@ -103,5 +115,10 @@ public partial class MainWindow : Window
     private async void Clear_Click(object? sender, RoutedEventArgs e)
     {
         if (!ViewModel.IsBusy) await ViewModel.ClearFiltersAsync();
+    }
+
+    private async void ResetTimestamp_Click(object? sender, RoutedEventArgs e)
+    {
+        if (!ViewModel.IsBusy) await ViewModel.SetTimestampPatternAsync(null);
     }
 }

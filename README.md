@@ -33,6 +33,8 @@ Open `samples/example.log` using **Открыть файл…**.
   or keep them greyed out for context. Matching lines remain at normal contrast. The status
   shows both the displayed count and the match count; switching modes keeps all filters.
 - Opening another file keeps the filters. A failed read keeps the previous file and shows an error.
+- Multi-line entries can be grouped by a timestamp selected in a line. Entry boundaries are
+  marked by thin separators, and filters then include or exclude complete entries.
 - Local files are opened read-only with `FileShare.ReadWrite | FileShare.Delete`, so a logger
   can keep writing or rotate the file while it is being read. The logger must itself allow
   readers; an exclusive lock cannot be bypassed. Reopen the file to load newer lines.
@@ -48,6 +50,34 @@ The sample file shows lines **4 and 5**. Resetting filters restores all eight li
 Matching ignores case by default, including Cyrillic case. Spaces around a term are significant.
 Empty or whitespace-only terms cannot be added. Characters such as `.` and `*` are literal,
 not regular expressions.
+
+### Multi-line log entries
+
+1. Open `samples/multiline.log`.
+2. Select just `2026-10-03 12:34:56` in line 2, then right-click and choose
+   **Начало записи по времени...**.
+3. The dialog previews `####-##-## ##:##:##` at position 1 and reports four matching
+   entry starts in the full file. Each `#` generated from a digit represents any ASCII digit;
+   separators, letters, spaces, and the selected starting position must match exactly.
+4. Click **Применить**. Each matching line begins an entry; subsequent lines belong to
+   it until the next match. The preamble before the first timestamp is a separate entry,
+   so this example has five entries in total.
+5. Add an include filter for `ERROR`: lines 4–7 stay together, including the stack trace
+   and blank line. Searching for `IOException` also keeps that entire entry. An exclude
+   match on any continuation line removes the whole entry.
+
+The grey-out switch also applies to complete entries. **Сбросить шаблон** returns to
+line-by-line filtering while keeping your filters and display mode. Repeating the selection
+workflow replaces the pattern. The pattern stays active when opening another file, but is
+not saved between app launches. If it finds no timestamps, all lines form one entry and
+a warning explains how to choose another pattern or reset it.
+
+This is structural matching, not calendar-date validation. Choose a fixed-width numeric
+timestamp; variable-width prefixes or textual month names that change are not generalized.
+Only the selected segment is matched, so you can omit fractional seconds from the selection
+when their length varies. Filter text is searched within each physical line, never across
+line breaks. Other timestamps in the middle of a message do not start an entry unless they
+match the same shape at the selected position.
 
 ## Tests
 
@@ -76,6 +106,10 @@ Headless means no desktop window needs to appear while tests run.
   `Any` asks whether at least one item matches a condition.
 - `LogFileReader.cs`: reads lines from a stream using `async`/`await`. The caller owns the
   stream; the reader deliberately leaves it open.
+- `TimestampPattern.cs`: remembers the selected timestamp and its character position;
+  digits may change while other characters stay literal. It matches directly without regex.
+- `LogEntryParser.cs` and `LogEntry.cs`: group physical lines into entries before filtering.
+  `LogFilterEngine.ApplyEntries` evaluates include/exclude rules against the whole entry.
 
 ### 2. App: layout, state, and interaction
 
@@ -97,6 +131,8 @@ Headless means no desktop window needs to appear while tests run.
   picker, open a filter dialog, and call the view model. These files are called code-behind.
 - `Views/FilterDialog.axaml` and its code-behind collect and validate a new filter. Confirming
   returns a `LogFilter`; cancelling returns `null`.
+- `Views/TimestampPatternDialog.axaml` previews the selected entry-start pattern and match
+  count. Confirming returns the pattern; cancellation leaves the current grouping unchanged.
 
 `async Task` methods return work that the caller can await. `await` lets the UI process events
 while that work is unfinished. `Task.Run` moves the file-reading/filtering work off the UI thread;
@@ -128,7 +164,8 @@ iteration, so the binding and notification code is visible and easy to follow.
   encodings such as Windows-1251 need a future encoding selector.
 - Filters live only for the current session. Regex, time/level filters, saved presets,
   live tailing, and filter editing are possible follow-up iterations.
-- The current interface does not parse log formats; each physical line is independent.
+- Without a timestamp pattern, each physical line is independent. With a pattern, lines
+  are grouped into entries; individual fields such as timestamp values and severity are not parsed.
 
 ## Framework references
 

@@ -1,0 +1,10 @@
+Application diagnostic log
+2026-10-03 12:34:56 INFO Startup complete
+  Configuration loaded
+2026-10-03 12:34:57 ERROR Request failed
+System.IO.IOException: Connection closed
+   at Example.Client.Send()
+
+2026-10-03 12:34:58 WARN Retry scheduled
+  Waiting 5 seconds
+2026-10-03 12:35:03 INFO Request completed
