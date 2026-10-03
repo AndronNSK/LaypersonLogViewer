@@ -1,0 +1,52 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="Layperson Log Viewer" Manufacturer="Layperson Log Viewer"
+           Version="$(var.AppVersion)" Language="$(var.Language)" Codepage="1251"
+           Scope="perUser" UpgradeCode="F60DC440-64BF-4C58-B1EA-5F58CDE41947">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Layperson Log Viewer is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+    <Property Id="WINDOWSBUILD">
+      <RegistrySearch Id="ReadWindowsBuild" Root="HKLM" Key="SOFTWARE\Microsoft\Windows NT\CurrentVersion"
+                      Name="CurrentBuildNumber" Type="raw" Bitness="always64" />
+    </Property>
+    <Launch Condition="Installed OR (WINDOWSBUILD &gt;= 10240)" Message="Windows 10 or later is required." />
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="UserPrograms" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="Layperson Log Viewer" />
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationMenuFolder" Name="Layperson Log Viewer">
+        <Component Id="StartMenuShortcut" Guid="*">
+          <Shortcut Id="StartMenuLink" Name="Layperson Log Viewer"
+                    Target="[INSTALLFOLDER]LaypersonLogViewer.App.exe" WorkingDirectory="INSTALLFOLDER" />
+          <RemoveFolder Id="RemoveMenuFolder" On="uninstall" />
+          <RegistryValue Root="HKCU" Key="Software\LaypersonLogViewer\Installer"
+                         Name="StartMenu" Type="integer" Value="1" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcut" Guid="*">
+        <Shortcut Id="DesktopLink" Name="Layperson Log Viewer"
+                  Target="[INSTALLFOLDER]LaypersonLogViewer.App.exe" WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKCU" Key="Software\LaypersonLogViewer\Installer"
+                       Name="Desktop" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+    <Feature Id="MainApplication" Title="Layperson Log Viewer" Level="1" AllowAbsent="no">
+      <ComponentGroupRef Id="PublishedFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+    </Feature>
+    <Feature Id="DesktopIcon" Title="Desktop shortcut" Level="2">
+      <ComponentRef Id="DesktopShortcut" />
+    </Feature>
+    <Property Id="INSTALLLEVEL" Value="1" />
+    <ui:WixUI Id="WixUI_FeatureTree" />
+    <UI>
+      <!-- Skip the stock placeholder EULA: this project has no application EULA. -->
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="CustomizeDlg" Order="2" Condition="NOT Installed" />
+      <Publish Dialog="CustomizeDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="2" Condition="NOT Installed" />
+    </UI>
+  </Package>
+</Wix>

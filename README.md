@@ -7,6 +7,9 @@ The interface is in Russian. Avalonia is the assumed meaning of “Avalon UI”.
 
 ## Run
 
+For a Windows PC without .NET installed, use the self-contained installer.
+See [installer build and distribution instructions](installer/README.md).
+
 Install the .NET 10 SDK, then run these commands from the repository folder:
 
 ```powershell
