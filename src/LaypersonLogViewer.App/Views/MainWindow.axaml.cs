@@ -18,7 +18,8 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = new MainWindowViewModel();
-        Closed += (_, _) => ViewModel.Statistics.Dispose();
+        InitializeStreaming();
+        Closed += (_, _) => { ViewModel.Live.Dispose(); ViewModel.Statistics.Dispose(); };
     }
 
     private MainWindowViewModel ViewModel => (MainWindowViewModel)DataContext!;
@@ -26,6 +27,7 @@ public partial class MainWindow : Window
     private async void OpenFile_Click(object? sender, RoutedEventArgs e)
     {
         if (ViewModel.IsBusy) return;
+        _streamTimer.Stop();
         try
         {
             var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
@@ -46,12 +48,14 @@ public partial class MainWindow : Window
             await using var stream = localPath is not null
                 ? LogFileReader.OpenRead(localPath)
                 : await file.OpenReadAsync();
+            ViewModel.Live.Detach();
             await ViewModel.LoadAsync(file.Name, stream);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException)
         {
             ViewModel.ReportError($"Не удалось открыть файл: {exception.Message}");
         }
+        finally { if (!_streamWindowClosed) _streamTimer.Start(); }
     }
 
     private async void Include_Click(object? sender, RoutedEventArgs e) => await AddFilterAsync(FilterKind.Include);

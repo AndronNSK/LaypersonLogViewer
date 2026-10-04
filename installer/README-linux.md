@@ -49,10 +49,10 @@ layperson-log-viewer_<version>_ubuntu22.04_amd64.deb.sha256
 
 ## Install and run
 
-For version 0.1.4, inside Ubuntu:
+For version 0.2.0, inside Ubuntu:
 
 ```bash
-sudo apt install /mnt/c/projects/LaypersonLogViewer/artifacts/installer/layperson-log-viewer_0.1.4_ubuntu22.04_amd64.deb
+sudo apt install /mnt/c/projects/LaypersonLogViewer/artifacts/installer/layperson-log-viewer_0.2.0_ubuntu22.04_amd64.deb
 layperson-log-viewer
 ```
 

@@ -15,12 +15,26 @@
       <RowDefinition Height="210" MinHeight="150" />
       <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
-    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+    <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="2">
       <TextBlock Text="Просмотр журналов" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
       <TextBlock Grid.Column="1" Text="{Binding FileName}" ToolTip.Tip="{Binding FileName}"
                  Foreground="#526174" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
       <Button Grid.Column="2" Name="OpenFileButton" Content="Открыть файл…" Click="OpenFile_Click"
               IsEnabled="{Binding !IsBusy}" VerticalAlignment="Center" />
+      <WrapPanel Grid.Row="1" Grid.ColumnSpan="3">
+        <Button Name="FollowFileButton" Content="Следить за файлом…" Click="FollowFile_Click" IsEnabled="{Binding !IsBusy}" Margin="0,0,4,0" />
+        <Button Name="StartCommandButton" Content="Запустить команду…" Click="StartCommand_Click" IsEnabled="{Binding !IsBusy}" Margin="0,0,4,0" />
+        <Button Name="StopStreamButton" Content="Стоп" Click="StopStream_Click" IsEnabled="{Binding Live.IsActive}" Margin="0,0,4,0" />
+        <Button Name="SaveLogButton" Content="Сохранить журнал…" Click="SaveLog_Click" Margin="0,0,8,0" />
+        <CheckBox Name="PauseStreamBox" Content="Пауза показа" IsChecked="{Binding Live.IsPaused}" IsEnabled="{Binding Live.HasSession}" Margin="0,0,8,0" />
+        <CheckBox Name="FollowLatestBox" Content="Прокрутка" IsChecked="{Binding Live.FollowLatest}" Margin="0,0,8,0"
+                  ToolTip.Tip="Следовать за новыми строками. Нажатие на строку отключает прокрутку; прокрутка до конца включает её." />
+        <TextBlock Text="Лимит строк:" VerticalAlignment="Center" Margin="0,0,4,0" />
+        <NumericUpDown Name="RetainedLinesBox" Value="{Binding Live.RetainedLines}" Minimum="100" Maximum="1000000" Increment="1000"
+                       Width="110" FormatString="0" ToolTip.Tip="Лимит для потоковых источников; старые строки удаляются. Статистика — по строкам в памяти." />
+      </WrapPanel>
+      <TextBlock Grid.Row="2" Grid.ColumnSpan="3" Text="{Binding Live.Status}" IsVisible="{Binding Live.HasSession}"
+                 FontSize="11" Foreground="#526174" TextWrapping="Wrap" />
     </Grid>
 
     <Border Grid.Row="1" Background="White" BorderBrush="#D9DFE8" BorderThickness="1" CornerRadius="4" ClipToBounds="True">

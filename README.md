@@ -19,6 +19,47 @@ dotnet run --project src/LaypersonLogViewer.App
 
 Open `samples/example.log` using **Открыть файл…**.
 
+## Streaming (0.2.0)
+
+Pipe a command's UTF-8 output into the app using `--stdin`:
+
+```powershell
+.\MyApplication.exe 2>&1 | .\LaypersonLogViewer.App.exe --stdin
+```
+
+On Linux with the installed package:
+
+```bash
+my-command 2>&1 | layperson-log-viewer --stdin
+```
+
+- **Следить за файлом…** reads an existing UTF-8 file and follows appended text.
+  It detects truncation and rename/replacement, and waits if the file temporarily disappears.
+  Incomplete lines wait for their newline; stopping or rotation retains the final fragment.
+- **Запустить команду…** accepts an executable, arguments, and working directory. Both stdout
+  and stderr are captured concurrently as UTF-8. There is no interactive stdin. Shell syntax
+  requires explicitly launching a shell (for example `powershell.exe` or `/bin/sh`).
+- **Стоп** stops capture; for a command started by the viewer it terminates that process and
+  its descendants. Closing the window or replacing the source also stops that command.
+  Piped producers are external processes and are not terminated by the viewer.
+- **Прокрутка** follows the newest displayed lines without changing horizontal scroll.
+  Clicking a log line or scrolling up turns it off. Scrolling back to the bottom resumes it;
+  the checkbox also lets you resume manually.
+- **Пауза показа** freezes displayed lines and their statistics, while capture continues.
+  Resuming displays the current retained data.
+- **Лимит строк** defaults to 10,000 (100–1,000,000). Oldest received lines are discarded;
+  original receipt numbers remain. This limit applies to streams, not ordinary file opening.
+  Evicting part of a multiline entry can leave its beginning outside the retained data.
+- **Сохранить журнал…** saves a UTF-8 snapshot of all retained lines, including excluded
+  lines and arrivals during pause. The snapshot is taken when the button is pressed.
+
+The UI processes snapshots approximately every 500 ms, when no other operation or editor
+is active. Filters, timestamp grouping, and statistics use those snapshots; statistics cover
+retained data, not the entire history of the stream. EOF or process exit leaves captured
+lines available for viewing and saving. Source errors and exit codes appear above the log.
+Output buffering in the source program can delay delivery. Ordering between stdout and
+stderr reflects arrival order; it cannot reconstruct a total order across the two streams.
+
 ## First iteration
 
 - One main window with a large, scrollable log pane and a smaller filter pane.

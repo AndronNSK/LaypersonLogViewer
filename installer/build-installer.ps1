@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [ValidatePattern('^\d+\.\d+\.\d+$')]
-    [string] $Version = '0.1.4',
+    [string] $Version = '0.2.0',
     [ValidateSet('ru-ru', 'en-us')]
     [string] $Culture = 'ru-ru',
     [switch] $SkipPublish

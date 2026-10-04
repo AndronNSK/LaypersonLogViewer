@@ -27,7 +27,7 @@ to the same version. Generated tools, extension caches, and packages are ignored
 ## Build
 
 ```powershell
-pwsh -NoProfile -File installer/build-installer.ps1 -Version 0.1.4
+pwsh -NoProfile -File installer/build-installer.ps1 -Version 0.2.0
 ```
 
 Add `-Culture en-us` for English setup dialogs; the default is `ru-ru`.
@@ -36,8 +36,8 @@ dependency notices, generates stable MSI components, builds the MSI, and writes 
 Output for the default culture:
 
 ```text
-artifacts/installer/LaypersonLogViewer-0.1.4-win-x64-ru-ru.msi
-artifacts/installer/LaypersonLogViewer-0.1.4-win-x64-ru-ru.msi.sha256
+artifacts/installer/LaypersonLogViewer-0.2.0-win-x64-ru-ru.msi
+artifacts/installer/LaypersonLogViewer-0.2.0-win-x64-ru-ru.msi.sha256
 ```
 
 Send the **MSI file** to the destination computer and double-click it. It contains the

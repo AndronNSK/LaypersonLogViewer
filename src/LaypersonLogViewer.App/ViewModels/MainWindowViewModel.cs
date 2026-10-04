@@ -27,6 +27,23 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     }
 
     public StatisticsViewModel Statistics { get; }
+    public LiveStreamViewModel Live { get; } = new();
+    public IReadOnlyList<LogLine> AllLines => _allLines;
+
+    public async Task ApplyLiveLinesAsync(string sourceName, IReadOnlyList<LogLine> lines)
+    {
+        BeginOperation();
+        try
+        {
+            var filters = _filters.ToArray();
+            var pattern = _timestampPattern;
+            var projection = await Task.Run(() => BuildProjection(lines, filters, pattern));
+            _allLines = lines;
+            _fileName = sourceName;
+            ApplyProjection(projection);
+        }
+        finally { EndOperation(); }
+    }
 
     public ReadOnlyObservableCollection<LogFilter> Filters { get; }
     public IReadOnlyList<LogLine> VisibleLines => _visibleLines;
