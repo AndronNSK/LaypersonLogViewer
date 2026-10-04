@@ -130,11 +130,17 @@ from filtered statistics. Calculations refresh in the background after patterns,
 filters, grouping, or the loaded file change. Regexes have a 100 ms per-line timeout;
 a failed pattern shows an error instead of partial results, while other patterns continue.
 
-Pattern definitions, example lines, markings, names, and scope are saved automatically to
-`%LOCALAPPDATA%/LaypersonLogViewer/statistics.json`. Results and captured values are not
-saved. Settings are restored at startup; opening a file calculates fresh results. A corrupt
-settings file is retained as a `.corrupt-*` backup when new settings are saved.
-Filters still remain session-only. Tests inject an in-memory store or a temporary directory.
+Both tabs have **Загрузить…** and **Сохранить…** buttons for separate JSON files.
+Statistics files include pattern definitions, examples, markings, names, and scope;
+filter files include show/hide groups, child conditions, and each condition's case setting.
+Loading replaces the current set in that tab and recalculates the loaded log. Invalid files
+and cancelled dialogs leave the current set unchanged. Local saves use a temporary file
+and replacement to avoid incomplete files.
+
+Each launch starts with empty filters and statistics. There is no automatic loading or
+saving; save any definitions you want to reuse before closing. Results and captured values
+are not saved. An older `%LOCALAPPDATA%/LaypersonLogViewer/statistics.json` can still be
+loaded explicitly from the statistics tab.
 
 ## Tests
 

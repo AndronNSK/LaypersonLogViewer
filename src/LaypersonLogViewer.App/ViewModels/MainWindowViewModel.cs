@@ -20,10 +20,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private int _matchingEntryCount;
     private int _timestampStartCount;
 
-    public MainWindowViewModel(IStatisticsSettingsStore? statisticsStore = null)
+    public MainWindowViewModel()
     {
         Filters = new ReadOnlyObservableCollection<LogFilter>(_filters);
-        Statistics = new StatisticsViewModel(statisticsStore);
+        Statistics = new StatisticsViewModel();
     }
 
     public StatisticsViewModel Statistics { get; }
@@ -98,6 +98,19 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public Task RemoveFilterAsync(LogFilter filter) => ChangeFiltersAsync(() => _filters.Remove(filter));
     public Task ClearFiltersAsync() => ChangeFiltersAsync(_filters.Clear);
 
+    public Task SaveFiltersAsync(Stream stream) => PatternFiles.SaveFiltersAsync(stream, _filters.ToArray());
+
+    public async Task LoadFiltersAsync(Stream stream)
+    {
+        // Validate the whole file before replacing the current groups.
+        var filters = await PatternFiles.LoadFiltersAsync(stream);
+        await ChangeFiltersAsync(() =>
+        {
+            _filters.Clear();
+            foreach (var filter in filters) _filters.Add(filter);
+        });
+    }
+
     public Task AddConditionAsync(LogFilter parent, LogFilterCondition condition) => ChangeFiltersAsync(() =>
     {
         var index = _filters.IndexOf(parent);
@@ -133,7 +146,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         finally { EndOperation(); }
     }
 
-    public void ReportError(string message)
+    public void ReportError(string? message)
     {
         _error = message;
         NotifyAll();

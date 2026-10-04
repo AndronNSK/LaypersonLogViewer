@@ -14,19 +14,10 @@ public partial class MainWindow : Window
 {
     private TextBox? _activeLogText;
 
-    public MainWindow() : this(null) { }
-
-    public MainWindow(IStatisticsSettingsStore? statisticsStore)
+    public MainWindow()
     {
         InitializeComponent();
-        DataContext = new MainWindowViewModel(statisticsStore);
-        Closing += async (_, e) =>
-        {
-            if (ViewModel.Statistics.PendingSave.IsCompleted) return;
-            e.Cancel = true;
-            await ViewModel.Statistics.PendingSave;
-            Close();
-        };
+        DataContext = new MainWindowViewModel();
         Closed += (_, _) => ViewModel.Statistics.Dispose();
     }
 
@@ -108,7 +99,7 @@ public partial class MainWindow : Window
         var selectionStart = Math.Min(text.SelectionStart, text.SelectionEnd);
         var canSetTimestamp = canAdd && selectedText.Any(char.IsAsciiDigit);
         var timestamp = new MenuItem { Header = "Начало записи по времени…", IsEnabled = canSetTimestamp };
-        var statistics = new MenuItem { Header = "Создать статистику…", IsEnabled = ViewModel.Statistics.IsReady };
+        var statistics = new MenuItem { Header = "Создать статистику…" };
         var example = text.Text ?? "";
         var menu = new ContextMenu
         {
@@ -147,7 +138,6 @@ public partial class MainWindow : Window
 
     public async Task EditStatisticsAsync(StatisticsPattern? pattern = null, string? example = null)
     {
-        await ViewModel.Statistics.Initialization;
         example ??= _activeLogText?.DataContext is LogLineRow row ? row.Text : "";
         var dialog = new StatisticsPatternDialog(example, ViewModel.Statistics.SourceLines, pattern);
         var accepted = await dialog.ShowDialog<StatisticsPattern?>(this);

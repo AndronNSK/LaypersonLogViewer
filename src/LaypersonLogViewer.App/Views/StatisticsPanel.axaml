@@ -1,34 +1,43 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:LaypersonLogViewer.App.ViewModels"
              x:Class="LaypersonLogViewer.App.Views.StatisticsPanel" x:DataType="vm:StatisticsViewModel">
-  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="4">
-    <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="4" IsEnabled="{Binding IsReady}">
-      <Button Name="AddPatternButton" Content="Добавить шаблон…" Click="Add_Click" />
-      <Button Grid.Column="1" Name="EditPatternButton" Content="Изменить…" Click="Edit_Click" IsEnabled="{Binding HasSelection}" />
-      <Button Grid.Column="2" Name="DeletePatternButton" Content="Удалить" Click="Delete_Click" IsEnabled="{Binding HasSelection}" />
-      <ComboBox Grid.Column="4" Name="ScopeBox" ItemsSource="{Binding ScopeLabels}" SelectedIndex="{Binding ScopeIndex, Mode=TwoWay}" MinWidth="160" />
-    </Grid>
-    <TextBlock Grid.Row="1" Text="{Binding Error}" IsVisible="{Binding HasError}" Foreground="#B42318" TextWrapping="Wrap" />
-    <ListBox Grid.Row="2" Name="PatternsList" ItemsSource="{Binding Patterns}" SelectedItem="{Binding SelectedPattern, Mode=TwoWay}"
+  <UserControl.Resources>
+    <Thickness x:Key="ExpanderHeaderPadding">6,0,0,0</Thickness>
+    <Thickness x:Key="ExpanderChevronMargin">8,0,4,0</Thickness>
+    <x:Double x:Key="ExpanderChevronButtonSize">20</x:Double>
+  </UserControl.Resources>
+  <Grid RowDefinitions="Auto,*" RowSpacing="4">
+    <WrapPanel Orientation="Horizontal">
+      <Button Name="AddPatternButton" Content="Добавить шаблон…" Click="Add_Click" Margin="0,0,4,2" />
+      <Button Name="EditPatternButton" Content="Изменить…" Click="Edit_Click" IsEnabled="{Binding HasSelection}" Margin="0,0,4,2" />
+      <Button Name="DeletePatternButton" Content="Удалить" Click="Delete_Click" IsEnabled="{Binding HasSelection}" Margin="0,0,4,2" />
+      <Button Name="LoadStatisticsButton" Content="Загрузить…" Click="Load_Click" Margin="0,0,4,2"
+              ToolTip.Tip="Заменить текущие шаблоны статистики шаблонами из файла" />
+      <Button Name="SaveStatisticsButton" Content="Сохранить…" Click="Save_Click" Margin="0,0,4,2"
+              ToolTip.Tip="Сохранить все шаблоны статистики в файл" />
+      <ComboBox Name="ScopeBox" ItemsSource="{Binding ScopeLabels}" SelectedIndex="{Binding ScopeIndex, Mode=TwoWay}" MinWidth="160" Margin="0,0,0,2" />
+    </WrapPanel>
+    <ListBox Grid.Row="1" Name="PatternsList" ItemsSource="{Binding Patterns}" SelectedItem="{Binding SelectedPattern, Mode=TwoWay}"
              ScrollViewer.VerticalScrollBarVisibility="Visible" ScrollViewer.AllowAutoHide="False"
              ScrollViewer.HorizontalScrollBarVisibility="Auto">
       <ListBox.Styles>
         <Style Selector="ListBoxItem">
           <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-          <Setter Property="Padding" Value="4,2" />
+          <Setter Property="Padding" Value="2,1" />
+          <Setter Property="MinHeight" Value="0" />
         </Style>
       </ListBox.Styles>
       <ListBox.ItemTemplate>
         <DataTemplate x:DataType="vm:StatisticsPatternRow">
           <Expander IsExpanded="{Binding IsExpanded, Mode=TwoWay}" HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Stretch" MinWidth="660">
+                    HorizontalContentAlignment="Stretch" MinWidth="660" MinHeight="26" Padding="6,2">
             <Expander.Header>
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" ToolTip.Tip="{Binding Expression}">
                 <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                 <TextBlock Grid.Column="1" Text="{Binding Status}" FontSize="11" TextTrimming="CharacterEllipsis" MaxWidth="350" ToolTip.Tip="{Binding Status}" />
               </Grid>
             </Expander.Header>
-            <StackPanel Spacing="2">
+            <StackPanel Spacing="0">
               <Grid ColumnDefinitions="*,80,100,100,100,100" ColumnSpacing="4">
                 <TextBlock Text="Значение" />
                 <TextBlock Grid.Column="1" Text="Количество" />

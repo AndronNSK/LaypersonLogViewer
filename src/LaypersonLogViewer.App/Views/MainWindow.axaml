@@ -25,14 +25,18 @@
 
     <Border Grid.Row="1" Background="White" BorderBrush="#D9DFE8" BorderThickness="1" CornerRadius="4" ClipToBounds="True">
       <Grid RowDefinitions="Auto,*">
-        <Border Background="#EAF0F6" Padding="8,4">
+        <Border Name="LogHeader" Background="#EAF0F6" Padding="8,2">
+          <Border.Resources>
+            <GridLength x:Key="ToggleSwitchPreContentMargin">2</GridLength>
+            <GridLength x:Key="ToggleSwitchPostContentMargin">2</GridLength>
+          </Border.Resources>
           <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
             <TextBlock Text="СТРОКИ ЖУРНАЛА" FontSize="11" FontWeight="SemiBold" Foreground="#526174" VerticalAlignment="Center" />
             <TextBlock Grid.Column="1" Text="{Binding GroupingDescription}" ToolTip.Tip="{Binding GroupingDescription}"
                        TextTrimming="CharacterEllipsis" VerticalAlignment="Center" FontSize="11" Foreground="#526174" />
             <Button Grid.Column="2" Name="ResetTimestampButton" Content="Сбросить шаблон"
                     IsVisible="{Binding HasTimestampPattern}" IsEnabled="{Binding !IsBusy}"
-                    VerticalAlignment="Center" Click="ResetTimestamp_Click" />
+                    MinHeight="24" Padding="8,1" VerticalAlignment="Center" Click="ResetTimestamp_Click" />
             <ToggleSwitch Grid.Column="3" Name="ShowFilteredOutSwitch" VerticalAlignment="Center"
                           IsChecked="{Binding ShowFilteredOut, Mode=TwoWay}"
                           OffContent="Скрывать отфильтрованные" OnContent="Отфильтрованные — серым"
@@ -80,14 +84,24 @@
 
     <Border Grid.Row="3" Background="White" CornerRadius="4" BorderBrush="#D9DFE8" BorderThickness="1" Padding="8">
       <TabControl Name="LowerTabs">
+        <TabControl.Styles>
+          <Style Selector="TabItem">
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="FontSize" Value="12" />
+          </Style>
+        </TabControl.Styles>
         <TabItem Header="Фильтры">
       <Grid RowDefinitions="Auto,Auto,*" RowSpacing="4">
-        <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="4">
-          <TextBlock Text="Фильтры" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" />
-          <Button Grid.Column="1" Name="IncludeButton" Content="Показать строки…" Click="Include_Click" IsEnabled="{Binding !IsBusy}" />
-          <Button Grid.Column="2" Name="ExcludeButton" Content="Скрыть строки…" Click="Exclude_Click" IsEnabled="{Binding !IsBusy}" />
-          <Button Grid.Column="3" Content="Сбросить" Click="Clear_Click" IsEnabled="{Binding !IsBusy}" />
-        </Grid>
+        <WrapPanel Orientation="Horizontal" IsEnabled="{Binding !IsBusy}">
+          <Button Name="IncludeButton" Content="Показать строки…" Click="Include_Click" Margin="0,0,4,2" />
+          <Button Name="ExcludeButton" Content="Скрыть строки…" Click="Exclude_Click" Margin="0,0,4,2" />
+          <Button Content="Сбросить" Click="Clear_Click" Margin="0,0,4,2" />
+          <Button Name="LoadFiltersButton" Content="Загрузить…" Click="LoadFilters_Click" Margin="0,0,4,2"
+                  ToolTip.Tip="Заменить текущие фильтры группами из файла" />
+          <Button Name="SaveFiltersButton" Content="Сохранить…" Click="SaveFilters_Click" Margin="0,0,0,2"
+                  ToolTip.Tip="Сохранить все группы фильтров в файл" />
+        </WrapPanel>
         <TextBlock Grid.Row="1" Text="{Binding FilterExplanation}"
                    FontSize="11" Foreground="#526174" TextWrapping="Wrap" />
         <Grid Grid.Row="2">

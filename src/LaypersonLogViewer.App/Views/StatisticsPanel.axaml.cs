@@ -32,4 +32,12 @@ public partial class StatisticsPanel : UserControl
     {
         if (DataContext is StatisticsViewModel model) model.DeleteSelected();
     }
+    private async void Load_Click(object? sender, RoutedEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this) is MainWindow window) await window.TransferPatternsAsync(true, false);
+    }
+    private async void Save_Click(object? sender, RoutedEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this) is MainWindow window) await window.TransferPatternsAsync(true, true);
+    }
 }

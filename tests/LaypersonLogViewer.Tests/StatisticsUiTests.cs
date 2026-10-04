@@ -15,6 +15,41 @@ namespace LaypersonLogViewer.Tests;
 
 public sealed class StatisticsUiTests
 {
+    [AvaloniaFact]
+    public void PatternFileButtonsFitAtMinimumWindowWidth()
+    {
+        var window = new MainWindow { Width = 760, Height = 560 };
+        window.Show();
+        try
+        {
+            window.MouseMove(new Point(0, 0));
+            window.UpdateLayout();
+            foreach (var name in new[] { "LoadFiltersButton", "SaveFiltersButton" })
+                CheckButton(window.FindControl<Button>(name)!);
+            window.FindControl<TabControl>("LowerTabs")!.SelectedIndex = 1;
+            window.UpdateLayout();
+            window.MouseMove(new Point(0, 0));
+            var panel = window.GetVisualDescendants().OfType<StatisticsPanel>().Single();
+            foreach (var name in new[] { "LoadStatisticsButton", "SaveStatisticsButton" })
+                CheckButton(panel.FindControl<Button>(name)!);
+            Assert.Empty(((MainWindowViewModel)window.DataContext!).Statistics.Patterns);
+
+            void CheckButton(Button button)
+            {
+                Assert.True(button.IsEffectivelyVisible);
+                Assert.True(button.IsEnabled);
+                Assert.True(button.Bounds.Width > 0 && button.Bounds.Height > 0);
+                var topLeft = button.TranslatePoint(default, window)!.Value;
+                Assert.InRange(topLeft.X, 0, window.ClientSize.Width - button.Bounds.Width);
+                Assert.InRange(topLeft.Y, 0, window.ClientSize.Height - button.Bounds.Height);
+                var hit = window.InputHitTest(button.TranslatePoint(
+                    new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), window)!.Value) as Visual;
+                Assert.Same(button, hit?.GetSelfAndVisualAncestors().OfType<Button>().FirstOrDefault());
+            }
+        }
+        finally { window.Close(); }
+    }
+
     private static void Click(Button button) => button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
     private static async Task Load(MainWindow window)
     {

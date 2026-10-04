@@ -48,21 +48,14 @@ public sealed class StatisticsPatternRow(StatisticsPattern pattern) : Observable
 
 public sealed class StatisticsViewModel : ObservableModel, IDisposable
 {
-    private readonly IStatisticsSettingsStore _store;
     private readonly Func<StatisticsPattern, IReadOnlyList<LogLine>, CancellationToken, PatternStatistics> _calculate;
-    private readonly SemaphoreSlim _saveLock = new(1);
     private CancellationTokenSource? _calculation;
     private IReadOnlyList<LogLine> _all = [], _filtered = [];
-    private bool _loaded, _initialized, _disposed;
+    private bool _loaded, _disposed;
     private int _scopeIndex;
     private StatisticsPatternRow? _selected;
     public ObservableCollection<StatisticsPatternRow> Patterns { get; } = [];
-    public Task Initialization { get; }
     public Task CurrentCalculation { get; private set; } = Task.CompletedTask;
-    public Task PendingSave { get; private set; } = Task.CompletedTask;
-    public string? Error { get; private set; }
-    public bool HasError => !string.IsNullOrEmpty(Error);
-    public bool IsReady => _initialized;
     public string[] ScopeLabels { get; } = ["После фильтрации", "Весь файл"];
     public int ScopeIndex
     {
@@ -72,7 +65,7 @@ public sealed class StatisticsViewModel : ObservableModel, IDisposable
             if (value is < 0 or > 1 || value == _scopeIndex) return;
             _scopeIndex = value;
             Notify();
-            if (_initialized) { Recalculate(); QueueSave(); }
+            Recalculate();
         }
     }
     public StatisticsPatternRow? SelectedPattern
@@ -83,28 +76,9 @@ public sealed class StatisticsViewModel : ObservableModel, IDisposable
     public bool HasSelection => SelectedPattern is not null;
     public IReadOnlyList<LogLine> SourceLines => _scopeIndex == 0 ? _filtered : _all;
 
-    public StatisticsViewModel(IStatisticsSettingsStore? store = null,
-        Func<StatisticsPattern, IReadOnlyList<LogLine>, CancellationToken, PatternStatistics>? calculate = null)
+    public StatisticsViewModel(Func<StatisticsPattern, IReadOnlyList<LogLine>, CancellationToken, PatternStatistics>? calculate = null)
     {
-        _store = store ?? new MemoryStatisticsSettingsStore();
         _calculate = calculate ?? StatisticsCalculator.Calculate;
-        Initialization = InitializeAsync();
-    }
-
-    private async Task InitializeAsync()
-    {
-        try
-        {
-            var settings = await _store.LoadAsync();
-            if (_disposed) return;
-            _scopeIndex = (int)settings.Scope;
-            foreach (var pattern in settings.Patterns) Patterns.Add(new(pattern));
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        { Error = $"Настройки статистики: {e.Message}"; }
-        _initialized = true;
-        Notify();
-        Recalculate();
     }
 
     public void SetSources(IReadOnlyList<LogLine> all, IReadOnlyList<LogLine> filtered, bool loaded)
@@ -112,14 +86,13 @@ public sealed class StatisticsViewModel : ObservableModel, IDisposable
         _all = all;
         _filtered = filtered;
         _loaded = loaded;
-        if (_initialized) Recalculate();
+        Recalculate();
     }
 
     public void SavePattern(StatisticsPattern pattern)
     {
-        if (!_initialized) throw new InvalidOperationException("Настройки ещё загружаются.");
         pattern.Validate();
-        // Copy collections so an editor cannot change a running calculation or queued save.
+        // Copy collections so an editor cannot change a running calculation.
         pattern = pattern with { Values = pattern.Values.ToArray(), Ranges = pattern.Ranges.ToArray() };
         var existing = Patterns.FirstOrDefault(row => row.Pattern.Id == pattern.Id);
         var row = new StatisticsPatternRow(pattern);
@@ -127,7 +100,6 @@ public sealed class StatisticsViewModel : ObservableModel, IDisposable
         else { row.IsExpanded = existing.IsExpanded; Patterns[Patterns.IndexOf(existing)] = row; }
         SelectedPattern = row;
         Recalculate();
-        QueueSave();
     }
 
     public void DeleteSelected()
@@ -136,23 +108,24 @@ public sealed class StatisticsViewModel : ObservableModel, IDisposable
         Patterns.Remove(SelectedPattern);
         SelectedPattern = null;
         Recalculate();
-        QueueSave();
     }
 
-    private void QueueSave()
+    public Task ExportAsync(Stream stream) => PatternFiles.SaveStatisticsAsync(stream, CreateSnapshot());
+
+    public async Task ImportAsync(Stream stream)
     {
-        var snapshot = new StatisticsSettings(1, (StatisticsScope)_scopeIndex, Patterns.Select(row => row.Pattern).ToArray());
-        PendingSave = SaveAsync(snapshot);
+        var settings = await PatternFiles.LoadStatisticsAsync(stream);
+        if (_disposed) return;
+        Patterns.Clear();
+        foreach (var pattern in settings.Patterns) Patterns.Add(new(pattern));
+        _scopeIndex = (int)settings.Scope;
+        SelectedPattern = null;
+        Recalculate();
+        Notify();
     }
 
-    private async Task SaveAsync(StatisticsSettings settings)
-    {
-        await _saveLock.WaitAsync();
-        try { await _store.SaveAsync(settings); Error = null; }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        { Error = $"Не удалось сохранить статистику: {e.Message}"; }
-        finally { _saveLock.Release(); Notify(); }
-    }
+    private StatisticsSettings CreateSnapshot() =>
+        new(1, (StatisticsScope)_scopeIndex, Patterns.Select(row => row.Pattern).ToArray());
 
     private void Recalculate()
     {
