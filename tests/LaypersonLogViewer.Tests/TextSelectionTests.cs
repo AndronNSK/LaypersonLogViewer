@@ -15,6 +15,46 @@ namespace LaypersonLogViewer.Tests;
 
 public sealed class TextSelectionTests
 {
+    [AvaloniaFact]
+    public async Task WordWrapFitsLongLinesAndPreservesSelectionDuringStreaming()
+    {
+        var window = new MainWindow();
+        window.Show();
+        try
+        {
+            var content = string.Join(" ", Enumerable.Repeat("long log message", 40));
+            await Load(window, content);
+            var model = (MainWindowViewModel)window.DataContext!;
+            var list = window.FindControl<ListBox>("LogLines")!;
+            var box = window.FindControl<CheckBox>("WordWrapBox")!;
+            var text = list.GetVisualDescendants().OfType<TextBox>().Single();
+            var originalHeight = text.Bounds.Height;
+            text.SelectionStart = 5;
+            text.SelectionEnd = 20;
+            var selected = text.SelectedText;
+            Assert.False(model.WordWrap);
+            box.IsChecked = true;
+            window.UpdateLayout();
+            Assert.True(model.WordWrap);
+            Assert.Equal(Avalonia.Media.TextWrapping.Wrap, text.TextWrapping);
+            Assert.True(text.Bounds.Height > originalHeight);
+            Assert.True(text.Bounds.Width < list.Bounds.Width);
+            Assert.Equal(selected, text.SelectedText);
+            await model.ApplyLiveLinesAsync("stream", [model.AllLines[0], new(2, content)]);
+            window.UpdateLayout();
+            Assert.Same(text, list.GetVisualDescendants().OfType<TextBox>().First());
+            Assert.All(list.GetVisualDescendants().OfType<TextBox>(), row =>
+                Assert.Equal(Avalonia.Media.TextWrapping.Wrap, row.TextWrapping));
+            Assert.Equal(selected, text.SelectedText);
+            box.IsChecked = false;
+            window.UpdateLayout();
+            Assert.Equal(Avalonia.Media.TextWrapping.NoWrap, text.TextWrapping);
+            Assert.Equal(originalHeight, text.Bounds.Height);
+            Assert.Equal(content, text.Text);
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaTheory]
     [InlineData(false, FilterKind.Include)]
     [InlineData(false, FilterKind.Exclude)]

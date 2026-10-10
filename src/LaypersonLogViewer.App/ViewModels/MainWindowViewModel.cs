@@ -14,6 +14,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private IReadOnlyList<LogLineRow> _allRows = Array.Empty<LogLineRow>();
     private IReadOnlyList<LogLineRow> _matchingRows = Array.Empty<LogLineRow>();
     private bool _showFilteredOut;
+    private bool _wordWrap;
     private string? _fileName;
     private string? _error;
     private bool _isBusy;
@@ -57,6 +58,21 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public ReadOnlyObservableCollection<LogFilter> Filters { get; }
     public IReadOnlyList<LogLine> VisibleLines => _visibleLines;
     public IReadOnlyList<LogLineRow> DisplayLines => _displayRows;
+    public bool WordWrap
+    {
+        get => _wordWrap;
+        set
+        {
+            if (_wordWrap == value) return;
+            _wordWrap = value;
+            foreach (var property in new[] { nameof(WordWrap), nameof(LogTextWrapping), nameof(LogHorizontalScrollBarVisibility) })
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
+        }
+    }
+    public Avalonia.Media.TextWrapping LogTextWrapping => WordWrap
+        ? Avalonia.Media.TextWrapping.Wrap : Avalonia.Media.TextWrapping.NoWrap;
+    public Avalonia.Controls.Primitives.ScrollBarVisibility LogHorizontalScrollBarVisibility => WordWrap
+        ? Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled : Avalonia.Controls.Primitives.ScrollBarVisibility.Auto;
     public bool ShowFilteredOut
     {
         get => _showFilteredOut;
