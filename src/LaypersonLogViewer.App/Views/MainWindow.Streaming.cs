@@ -21,7 +21,9 @@ public partial class MainWindow
         {
             if (e.Source is Visual source && source.GetSelfAndVisualAncestors()
                 .OfType<Control>().Any(control => control.DataContext is LogLineRow))
+            {
                 ViewModel.Live.FollowLatest = false;
+            }
         }, RoutingStrategies.Tunnel, handledEventsToo: true);
         LogLines.AddHandler(ScrollViewer.ScrollChangedEvent, (_, e) =>
         {
@@ -57,19 +59,11 @@ public partial class MainWindow
             try
             {
                 var scroll = LogLines.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
-                var offset = scroll?.Offset ?? default;
-                var selections = LogLines.GetVisualDescendants().OfType<TextBox>()
-                    .Where(t => t.DataContext is LogLineRow && t.SelectionStart != t.SelectionEnd)
-                    .Select(t => (((LogLineRow)t.DataContext!).Line, t.SelectionStart, t.SelectionEnd)).ToArray();
                 if (await ViewModel.Live.RefreshAsync(ViewModel) && !_streamWindowClosed)
                 {
                     LogLines.UpdateLayout();
-                    foreach (var text in LogLines.GetVisualDescendants().OfType<TextBox>())
-                        foreach (var (line, start, end) in selections)
-                            if (text.DataContext is LogLineRow row && ReferenceEquals(row.Line, line))
-                            { text.SelectionStart = start; text.SelectionEnd = end; }
-                    if (scroll is not null)
-                        scroll.Offset = new Vector(offset.X, ViewModel.Live.FollowLatest ? scroll.ScrollBarMaximum.Y : offset.Y);
+                    if (scroll is not null && ViewModel.Live.FollowLatest)
+                        scroll.Offset = new Vector(scroll.Offset.X, scroll.ScrollBarMaximum.Y);
                 }
             }
             finally { _streamRefreshing = false; }

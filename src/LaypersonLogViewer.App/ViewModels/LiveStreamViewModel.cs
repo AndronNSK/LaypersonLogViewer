@@ -54,13 +54,15 @@ public sealed class LiveStreamViewModel : ObservableModel, IDisposable
         var session = _session;
         if (session is null) return false;
         var snapshot = session.Buffer.Snapshot();
-        Status = $"{session.Status} · Получено: {snapshot.Received:N0} · В памяти: {snapshot.Lines.Length:N0}"
+        var status = $"{session.Status} · Получено: {snapshot.Received:N0} · В памяти: {snapshot.Lines.Length:N0}"
             + (IsPaused ? " · Показ приостановлен" : "");
-        Notify();
+        if (Status != status) { Status = status; Notify(nameof(Status)); }
+        Notify(nameof(IsActive));
         if (IsPaused || model.IsBusy || snapshot.Revision == _displayedRevision) return false;
-        await model.ApplyLiveLinesAsync(session.Name, snapshot.Lines);
-        if (ReferenceEquals(session, _session)) _displayedRevision = snapshot.Revision;
-        return true;
+        var applied = await model.ApplyLiveLinesAsync(session.Name, snapshot.Lines,
+            () => ReferenceEquals(session, _session) && !IsPaused);
+        if (applied && ReferenceEquals(session, _session)) _displayedRevision = snapshot.Revision;
+        return applied;
     }
 
     public LogLine[] Snapshot() => _session?.Buffer.Snapshot().Lines ?? [];

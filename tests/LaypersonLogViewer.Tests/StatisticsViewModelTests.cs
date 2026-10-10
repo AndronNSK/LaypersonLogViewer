@@ -7,6 +7,47 @@ namespace LaypersonLogViewer.Tests;
 public sealed class StatisticsViewModelTests
 {
     [Fact]
+    public async Task LiveRefreshKeepsStatisticsRowsAndUpdatesValuesInPlace()
+    {
+        using var started = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        using var stats = new StatisticsViewModel((pattern, lines, token) =>
+        {
+            if (lines.Count == 2)
+            {
+                started.Set();
+                release.Wait(token);
+            }
+            return StatisticsCalculator.Calculate(pattern, lines, token);
+        });
+        stats.SavePattern(StatisticsTests.Pattern());
+        var initial = StatisticsTests.Lines("x=2");
+        stats.SetSources(initial, initial, true);
+        await stats.CurrentCalculation;
+        var patternRow = stats.Patterns[0];
+        var values = patternRow.Values;
+        var value = values[0];
+        try
+        {
+            var next = StatisticsTests.Lines("x=2", "x=4");
+            stats.SetSources(next, next, true, liveUpdate: true);
+            Assert.True(started.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+            Assert.Equal("Готово", patternRow.Status);
+            Assert.Same(values, patternRow.Values);
+            Assert.Equal("2", value.Mean);
+        }
+        finally { release.Set(); }
+        await stats.CurrentCalculation;
+        Assert.Same(values, patternRow.Values);
+        Assert.Same(value, patternRow.Values[0]);
+        Assert.Equal("3", value.Mean);
+        Assert.Equal(2, value.Count);
+        patternRow.SetResult(new PatternStatistics(patternRow.Pattern.Id, [], "Ошибка"));
+        Assert.Empty(patternRow.Values);
+        Assert.Equal("Ошибка", patternRow.Status);
+    }
+
+    [Fact]
     public async Task ScopeFollowsEntryFilteringButNotGreyDisplayAndRefreshesAfterFileLoad()
     {
         var model = new MainWindowViewModel();

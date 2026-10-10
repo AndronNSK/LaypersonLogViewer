@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/LaypersonLogViewer.Core/LaypersonLogViewer.Core.csproj" />
     <Project Path="src/LaypersonLogViewer.App/LaypersonLogViewer.App.csproj" />
+    <Project Path="src/LaypersonLogViewer.FakeLogs/LaypersonLogViewer.FakeLogs.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/LaypersonLogViewer.Tests/LaypersonLogViewer.Tests.csproj" />

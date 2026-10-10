@@ -24,7 +24,7 @@ Open `samples/example.log` using **Открыть файл…**.
 Pipe a command's UTF-8 output into the app using `--stdin`:
 
 ```powershell
-.\MyApplication.exe 2>&1 | .\LaypersonLogViewer.App.exe --stdin
+cmd /d /c '.\MyApplication.exe 2>&1 | .\LaypersonLogViewer.App.exe --stdin'
 ```
 
 On Linux with the installed package:
@@ -54,13 +54,63 @@ my-command 2>&1 | layperson-log-viewer --stdin
   lines and arrivals during pause. The snapshot is taken when the button is pressed.
 
 The UI processes snapshots approximately every 500 ms, when no other operation or editor
-is active. Filters, timestamp grouping, and statistics use those snapshots; statistics cover
+is active. Existing rows and text controls are retained while new rows are inserted and
+expired rows are removed, so text selection continues during incoming batches.
+Filters, timestamp grouping, and statistics use those snapshots; statistics cover
 retained data, not the entire history of the stream. EOF or process exit leaves captured
 lines available for viewing and saving. Source errors and exit codes appear above the log.
 Output buffering in the source program can delay delivery. Ordering between stdout and
 stderr reflects arrival order; it cannot reconstruct a total order across the two streams.
 
-## First iteration
+## Fake log generator
+
+`LaypersonLogViewer.FakeLogs` is a separate .NET 10 console app with no Avalonia dependency.
+It produces timestamped INFO/DEBUG/WARN/ERROR entries, Russian text, searchable categories,
+numeric `duration`/`size` fields, multiline errors, and occasional long lines. It makes no
+network requests. Build from the repository root:
+
+```powershell
+dotnet build src/LaypersonLogViewer.FakeLogs -c Release
+```
+
+Generate 20 entries, one every 100 ms:
+
+```powershell
+.\src\LaypersonLogViewer.FakeLogs\bin\Release\net10.0\LaypersonLogViewer.FakeLogs.exe --count 20 --interval-ms 100
+```
+
+Pipe into the viewer (build the full solution first). Use the built executable so build
+messages from `dotnet run` do not enter your log:
+
+```powershell
+cmd /d /c '.\src\LaypersonLogViewer.FakeLogs\bin\Release\net10.0\LaypersonLogViewer.FakeLogs.exe --interval-ms 100 2>&1 | .\src\LaypersonLogViewer.App\bin\Release\net10.0\LaypersonLogViewer.App.exe --stdin'
+```
+
+The `cmd /d /c` wrapper runs the native pipe directly, avoiding PowerShell pipeline
+buffering/encoding differences. It works from PowerShell; keep the whole pipeline inside
+the single quotes. Press Ctrl+C to stop the generator.
+
+On Linux, after building the solution:
+
+```bash
+./src/LaypersonLogViewer.FakeLogs/bin/Release/net10.0/LaypersonLogViewer.FakeLogs --interval-ms 100 2>&1 | ./src/LaypersonLogViewer.App/bin/Release/net10.0/LaypersonLogViewer.App --stdin
+```
+
+For **Запустить команду…**, enter the full path to the generator executable and put
+`--interval-ms 100` in the arguments field. The viewer captures stdout and stderr together.
+For **Следить за файлом…**, run the generator with `--file fake.log`, then select that file.
+Relative file paths are resolved against the generator's working directory.
+
+Options: `--interval-ms N` (default 500, minimum 1), `--count N` (positive entry count;
+omit to run continuously), `--seed N` (default 42), `--file PATH`, and `--help`.
+Stop with Ctrl+C. ERROR entries go to stderr; other entries go to stdout. File mode writes
+all entries only to the file, creates it if missing, and appends on subsequent runs.
+Every entry is flushed immediately. Existing parent folders are required.
+The seed repeats numeric values, while timestamps use the current local time; request
+numbers restart at 1 for each run. Count means entries, including multiline entries.
+The generator needs .NET 10 and is not included in the viewer installers.
+
+## Viewer features
 
 - One main window with a large, scrollable log pane and a smaller filter pane.
 - Drag the divider to adjust the pane sizes.

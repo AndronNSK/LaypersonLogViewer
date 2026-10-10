@@ -14,6 +14,58 @@ namespace LaypersonLogViewer.Tests;
 public sealed class StreamingUiTests
 {
     [AvaloniaFact]
+    public async Task DragSelectionContinuesWhileIncomingBatchesAppendRows()
+    {
+        var window = new MainWindow();
+        window.Show();
+        try
+        {
+            var model = (MainWindowViewModel)window.DataContext!;
+            var ready = new TaskCompletionSource<Action<string>>(TaskCreationOptions.RunContinuationsAsynchronously);
+            model.Live.Start("selection test", async (receive, token) =>
+            {
+                receive("INFO select this text while new entries arrive");
+                ready.SetResult(receive);
+                await Task.Delay(Timeout.Infinite, token);
+                return "done";
+            });
+            var write = await ready.Task;
+            await WaitFor(() => model.AllLines.Count == 1 && !model.IsBusy);
+            window.UpdateLayout();
+            window.MouseMove(new Point(0, 0));
+            var list = window.FindControl<ListBox>("LogLines")!;
+            var text = list.GetVisualDescendants().OfType<TextBox>().Single();
+            var start = text.TranslatePoint(new Point(8, 8), window)!.Value;
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(start + new Vector(90, 0), RawInputModifiers.LeftMouseButton);
+            Assert.False(string.IsNullOrEmpty(text.SelectedText));
+            var selected = text.SelectedText;
+            write("second line");
+            await WaitFor(() => model.AllLines.Count == 2 && !model.IsBusy);
+            Assert.Equal(2, model.Live.Snapshot().Length);
+            Assert.Same(text, list.GetVisualDescendants().OfType<TextBox>()
+                .Single(t => t.DataContext is LogLineRow row && row.Number == 1));
+            Assert.Equal(selected, text.SelectedText);
+            window.MouseMove(start + new Vector(150, 0), RawInputModifiers.LeftMouseButton);
+            Assert.True(text.SelectedText!.Length > selected!.Length);
+            selected = text.SelectedText;
+            window.MouseUp(start + new Vector(150, 0), MouseButton.Left);
+            await WaitFor(() => model.AllLines.Count == 2 && !model.IsBusy);
+            text = list.GetVisualDescendants().OfType<TextBox>()
+                .Single(t => t.DataContext is LogLineRow row && row.Number == 1);
+            Assert.Equal(selected, text.SelectedText);
+            write("third line");
+            await WaitFor(() => model.AllLines.Count == 3 && !model.IsBusy);
+            text = list.GetVisualDescendants().OfType<TextBox>()
+                .Single(t => t.DataContext is LogLineRow row && row.Number == 1);
+            Assert.Equal(selected, text.SelectedText);
+            model.Live.Stop();
+            await model.Live.Completion;
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
     public void CommandDialogCancelDoesNotStartCapture()
     {
         var window = new MainWindow();

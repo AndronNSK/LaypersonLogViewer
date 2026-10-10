@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using Avalonia.Collections;
 using LaypersonLogViewer.Core;
 
 namespace LaypersonLogViewer.App.ViewModels;
@@ -7,6 +8,7 @@ namespace LaypersonLogViewer.App.ViewModels;
 public sealed class MainWindowViewModel : INotifyPropertyChanged
 {
     private readonly ObservableCollection<LogFilter> _filters = new();
+    private readonly AvaloniaList<LogLineRow> _displayRows = new();
     private IReadOnlyList<LogLine> _allLines = Array.Empty<LogLine>();
     private IReadOnlyList<LogLine> _visibleLines = Array.Empty<LogLine>();
     private IReadOnlyList<LogLineRow> _allRows = Array.Empty<LogLineRow>();
@@ -15,6 +17,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private string? _fileName;
     private string? _error;
     private bool _isBusy;
+    private long _projectionRevision;
     private TimestampPattern? _timestampPattern;
     private int _entryCount;
     private int _matchingEntryCount;
@@ -30,24 +33,30 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public LiveStreamViewModel Live { get; } = new();
     public IReadOnlyList<LogLine> AllLines => _allLines;
 
-    public async Task ApplyLiveLinesAsync(string sourceName, IReadOnlyList<LogLine> lines)
+    public async Task<bool> ApplyLiveLinesAsync(string sourceName, IReadOnlyList<LogLine> lines,
+        Func<bool>? isCurrent = null)
     {
-        BeginOperation();
-        try
-        {
-            var filters = _filters.ToArray();
-            var pattern = _timestampPattern;
-            var projection = await Task.Run(() => BuildProjection(lines, filters, pattern));
-            _allLines = lines;
-            _fileName = sourceName;
-            ApplyProjection(projection);
-        }
-        finally { EndOperation(); }
+        if (_isBusy) return false;
+        var revision = ++_projectionRevision;
+        var filters = _filters.ToArray();
+        var pattern = _timestampPattern;
+        var projection = await Task.Run(() => BuildProjection(lines, filters, pattern));
+        // User operations and newer snapshots take precedence over this batch.
+        if (_isBusy || revision != _projectionRevision || isCurrent?.Invoke() == false) return false;
+        _allLines = lines;
+        _fileName = sourceName;
+        ApplyProjection(projection, liveUpdate: true);
+        foreach (var property in new[] { nameof(AllLines), nameof(VisibleLines), nameof(FileName),
+            nameof(EntryCount), nameof(MatchingEntryCount), nameof(TimestampStartCount),
+            nameof(GroupingDescription), nameof(GroupingWarning), nameof(HasGroupingWarning),
+            nameof(IsEmpty), nameof(EmptyMessage), nameof(Status) })
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
+        return true;
     }
 
     public ReadOnlyObservableCollection<LogFilter> Filters { get; }
     public IReadOnlyList<LogLine> VisibleLines => _visibleLines;
-    public IReadOnlyList<LogLineRow> DisplayLines => _showFilteredOut ? _allRows : _matchingRows;
+    public IReadOnlyList<LogLineRow> DisplayLines => _displayRows;
     public bool ShowFilteredOut
     {
         get => _showFilteredOut;
@@ -55,6 +64,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             if (_showFilteredOut == value) return;
             _showFilteredOut = value;
+            UpdateDisplayRows();
             NotifyAll();
         }
     }
@@ -215,20 +225,55 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             entries.Count, matching.Count, timestampStarts);
     }
 
-    private void ApplyProjection(Projection projection)
+    private void ApplyProjection(Projection projection, bool liveUpdate = false)
     {
         _visibleLines = projection.Visible;
-        _allRows = projection.Rows;
-        _matchingRows = projection.MatchingRows;
+        var existing = new Dictionary<LogLine, LogLineRow>(ReferenceEqualityComparer.Instance);
+        foreach (var row in _allRows) existing.Add(row.Line, row);
+        _allRows = projection.Rows.Select(row =>
+        {
+            if (!existing.TryGetValue(row.Line, out var retained)) return row;
+            retained.UpdateDisplayState(row.IsFilteredOut, row.IsEntryStart);
+            return retained;
+        }).ToArray();
+        _matchingRows = _allRows.Where(row => !row.IsFilteredOut).ToArray();
+        UpdateDisplayRows();
         _entryCount = projection.Entries;
         _matchingEntryCount = projection.MatchingEntries;
         _timestampStartCount = projection.TimestampStarts;
-        Statistics.SetSources(_allLines, _visibleLines, _fileName is not null);
+        Statistics.SetSources(_allLines, _visibleLines, _fileName is not null, liveUpdate);
+    }
+
+    private void UpdateDisplayRows()
+    {
+        var desired = _showFilteredOut ? _allRows : _matchingRows;
+        var retained = desired.ToHashSet();
+        // Remove only rows that disappeared, in contiguous ranges. Never reset ItemsSource.
+        for (var end = _displayRows.Count - 1; end >= 0;)
+        {
+            if (retained.Contains(_displayRows[end])) { end--; continue; }
+            var start = end;
+            while (start > 0 && !retained.Contains(_displayRows[start - 1])) start--;
+            _displayRows.RemoveRange(start, end - start + 1);
+            end = start - 1;
+        }
+        // Common rows remain in source order, so only insertions are needed after removals.
+        for (var index = 0; index < desired.Count;)
+        {
+            if (index < _displayRows.Count && ReferenceEquals(_displayRows[index], desired[index]))
+            { index++; continue; }
+            var end = index + 1;
+            while (end < desired.Count && (index >= _displayRows.Count
+                || !ReferenceEquals(desired[end], _displayRows[index]))) end++;
+            _displayRows.InsertRange(index, desired.Skip(index).Take(end - index));
+            index = end;
+        }
     }
 
     private void BeginOperation()
     {
         if (_isBusy) throw new InvalidOperationException("An operation is already running.");
+        _projectionRevision++;
         _isBusy = true;
         _error = null;
         NotifyAll();

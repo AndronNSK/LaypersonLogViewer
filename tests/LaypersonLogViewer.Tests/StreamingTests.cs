@@ -8,6 +8,63 @@ namespace LaypersonLogViewer.Tests;
 public sealed class StreamingTests
 {
     [Fact]
+    public async Task IncomingBatchDoesNotToggleBusyOrRefreshToolbarBindings()
+    {
+        var model = new MainWindowViewModel();
+        using var stats = model.Statistics;
+        var notifications = new List<string?>();
+        model.PropertyChanged += (_, e) =>
+        {
+            Assert.False(model.IsBusy);
+            Assert.DoesNotContain("Обработка", model.Status);
+            notifications.Add(e.PropertyName);
+        };
+        Assert.True(await model.ApplyLiveLinesAsync("stream", [new(1, "first")]));
+        Assert.DoesNotContain("", notifications);
+        Assert.DoesNotContain(nameof(model.IsBusy), notifications);
+        Assert.Contains(nameof(model.Status), notifications);
+        Assert.Single(model.DisplayLines);
+    }
+
+    [Fact]
+    public async Task SupersededSourceCannotApplyItsPendingBatch()
+    {
+        var model = new MainWindowViewModel();
+        using var stats = model.Statistics;
+        await model.ApplyLiveLinesAsync("current", [new(1, "keep")]);
+        Assert.False(await model.ApplyLiveLinesAsync("old", [new(2, "discard")], () => false));
+        Assert.Equal("current", model.FileName);
+        Assert.Equal("keep", Assert.Single(model.DisplayLines).Text);
+    }
+
+    [Fact]
+    public async Task IncomingBatchesKeepCollectionAndExistingRowsWithoutReset()
+    {
+        var model = new MainWindowViewModel();
+        using var stats = model.Statistics;
+        var first = new LogLine(1, "first");
+        var second = new LogLine(2, "second");
+        await model.ApplyLiveLinesAsync("test", [first, second]);
+        var collection = model.DisplayLines;
+        var row = collection[1];
+        var actions = new List<System.Collections.Specialized.NotifyCollectionChangedAction>();
+        ((System.Collections.Specialized.INotifyCollectionChanged)collection).CollectionChanged += (_, e) => actions.Add(e.Action);
+        var third = new LogLine(3, "third");
+        await model.ApplyLiveLinesAsync("test", [first, second, third]);
+        Assert.Same(collection, model.DisplayLines);
+        Assert.Same(row, model.DisplayLines[1]);
+        Assert.Equal(new[] { System.Collections.Specialized.NotifyCollectionChangedAction.Add }, actions);
+        actions.Clear();
+        await model.ApplyLiveLinesAsync("test", [second, third]);
+        Assert.Same(row, model.DisplayLines[0]);
+        Assert.Equal(new[] { System.Collections.Specialized.NotifyCollectionChangedAction.Remove }, actions);
+        model.ShowFilteredOut = true;
+        await model.AddFilterAsync(new LogFilter(FilterKind.Include, "third"));
+        Assert.Same(row, model.DisplayLines[0]);
+        Assert.True(row.IsFilteredOut);
+    }
+
+    [Fact]
     public void BufferRetainsNewestLinesWithStableNumbersAndIndependentSnapshots()
     {
         var buffer = new LiveLogBuffer(200);

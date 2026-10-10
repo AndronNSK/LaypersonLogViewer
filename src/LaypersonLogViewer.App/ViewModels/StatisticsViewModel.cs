@@ -8,11 +8,19 @@ namespace LaypersonLogViewer.App.ViewModels;
 public abstract class ObservableModel : INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler? PropertyChanged;
-    protected void Notify() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(string.Empty));
+    protected void Notify(string property = "") => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
 }
 
-public sealed class StatisticsValueRow(ValueStatistics value)
+public sealed class StatisticsValueRow(ValueStatistics initialValue) : ObservableModel
 {
+    private ValueStatistics value = initialValue;
+    public string GroupName => value.GroupName;
+    public void Update(ValueStatistics updated)
+    {
+        if (value == updated) return;
+        value = updated;
+        Notify();
+    }
     public string Name => value.DisplayName;
     public int Count => value.Count;
     public string Mean => Format(value.Mean);
@@ -32,8 +40,9 @@ public sealed class StatisticsPatternRow(StatisticsPattern pattern) : Observable
     public string Status { get; private set; } = "Откройте файл";
     public IReadOnlyList<StatisticsValueRow> Values { get; private set; } = [];
     public bool IsExpanded { get; set; } = true;
-    public void SetPending(bool loaded)
+    public void SetPending(bool loaded, bool liveUpdate = false)
     {
+        if (liveUpdate && loaded && Values.Count > 0) return;
         Status = loaded ? "Расчёт…" : "Откройте файл";
         Values = [];
         Notify();
@@ -41,8 +50,16 @@ public sealed class StatisticsPatternRow(StatisticsPattern pattern) : Observable
     public void SetResult(PatternStatistics result)
     {
         Status = result.Error ?? "Готово";
-        Values = result.Values.Select(value => new StatisticsValueRow(value)).ToArray();
-        Notify();
+        if (Values.Select(value => value.GroupName).SequenceEqual(result.Values.Select(value => value.GroupName)))
+        {
+            for (var i = 0; i < Values.Count; i++) Values[i].Update(result.Values[i]);
+        }
+        else
+        {
+            Values = result.Values.Select(value => new StatisticsValueRow(value)).ToArray();
+            Notify(nameof(Values));
+        }
+        Notify(nameof(Status));
     }
 }
 
@@ -81,12 +98,12 @@ public sealed class StatisticsViewModel : ObservableModel, IDisposable
         _calculate = calculate ?? StatisticsCalculator.Calculate;
     }
 
-    public void SetSources(IReadOnlyList<LogLine> all, IReadOnlyList<LogLine> filtered, bool loaded)
+    public void SetSources(IReadOnlyList<LogLine> all, IReadOnlyList<LogLine> filtered, bool loaded, bool liveUpdate = false)
     {
         _all = all;
         _filtered = filtered;
         _loaded = loaded;
-        Recalculate();
+        Recalculate(liveUpdate);
     }
 
     public void SavePattern(StatisticsPattern pattern)
@@ -127,14 +144,14 @@ public sealed class StatisticsViewModel : ObservableModel, IDisposable
     private StatisticsSettings CreateSnapshot() =>
         new(1, (StatisticsScope)_scopeIndex, Patterns.Select(row => row.Pattern).ToArray());
 
-    private void Recalculate()
+    private void Recalculate(bool liveUpdate = false)
     {
         _calculation?.Cancel();
         _calculation?.Dispose();
         _calculation = new CancellationTokenSource();
         var token = _calculation.Token;
         var rows = Patterns.ToArray();
-        foreach (var row in rows) row.SetPending(_loaded);
+        foreach (var row in rows) row.SetPending(_loaded, liveUpdate);
         CurrentCalculation = _loaded && !_disposed ? CalculateAsync(rows, SourceLines, token) : Task.CompletedTask;
     }
 
