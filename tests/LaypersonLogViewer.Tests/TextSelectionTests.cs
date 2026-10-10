@@ -58,8 +58,6 @@ public sealed class TextSelectionTests
     [AvaloniaTheory]
     [InlineData(false, FilterKind.Include)]
     [InlineData(false, FilterKind.Exclude)]
-    [InlineData(true, FilterKind.Include)]
-    [InlineData(true, FilterKind.Exclude)]
     public async Task FilterUsesCurrentSelectionAndAcceptsTypedEdits(bool contextMenu, FilterKind kind)
     {
         var window = new MainWindow();
@@ -113,7 +111,7 @@ public sealed class TextSelectionTests
     [InlineData(true, false, false, false)]
     [InlineData(true, true, false, false)]
     [InlineData(true, true, true, false)]
-    [InlineData(true, false, false, true)]
+    [InlineData(false, false, false, true)]
     public async Task FilterDialogPreservesSelectionOnlyOnSurvivingLine(
         bool contextMenu, bool exclude, bool greyMode, bool cancel)
     {
@@ -144,11 +142,15 @@ public sealed class TextSelectionTests
                 window.MouseDown(point, MouseButton.Left);
                 window.MouseUp(point, MouseButton.Left);
             }
-            var dialog = Assert.IsType<FilterDialog>(Assert.Single(window.OwnedWindows));
-            // A toolbar exclusion removes another row; the context exclusion removes this row.
-            dialog.FindControl<TextBox>("PatternBox")!.Text = exclude && !contextMenu ? "before" : "ERROR";
-            dialog.FindControl<Button>(cancel ? "CancelButton" : "AddButton")!
-                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            if (contextMenu) Assert.Empty(window.OwnedWindows);
+            else
+            {
+                var dialog = Assert.IsType<FilterDialog>(Assert.Single(window.OwnedWindows));
+                // A toolbar exclusion removes another row; the context exclusion removes this row.
+                dialog.FindControl<TextBox>("PatternBox")!.Text = exclude ? "before" : "ERROR";
+                dialog.FindControl<Button>(cancel ? "CancelButton" : "AddButton")!
+                    .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            }
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             if (!cancel)
                 while (model.Filters.Count == 0 || model.IsBusy) await Task.Delay(10, timeout.Token);
@@ -203,7 +205,7 @@ public sealed class TextSelectionTests
     [InlineData(FilterKind.Exclude, false)]
     [InlineData(FilterKind.Include, true)]
     [InlineData(FilterKind.Exclude, true)]
-    public async Task SelectedTextPrefillsCorrectFilterDialog(FilterKind kind, bool greyMode)
+    public async Task ContextMenuAddsExactSelectedTextWithoutDialog(FilterKind kind, bool greyMode)
     {
         var window = new MainWindow();
         window.Show();
@@ -230,12 +232,8 @@ public sealed class TextSelectionTests
             Assert.True(item.IsEnabled);
             item.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
 
-            var dialog = Assert.IsType<FilterDialog>(Assert.Single(window.OwnedWindows));
-            Assert.Equal(selected, dialog.FindControl<TextBox>("PatternBox")!.Text);
-            Assert.Equal(countBefore, model.Filters.Count);
-            var add = dialog.FindControl<Button>("AddButton")!;
-            Assert.True(add.IsEnabled);
-            add.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.Empty(window.OwnedWindows);
+            Assert.False(menu.IsOpen);
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             while (model.Filters.Count == countBefore || model.IsBusy)
                 await Task.Delay(10, timeout.Token);
@@ -280,8 +278,7 @@ public sealed class TextSelectionTests
             var text = FirstText(window);
             text.Focus();
             text.SelectAll();
-            var menu = OpenMenu(window, text);
-            menu.Items.OfType<MenuItem>().First().RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            window.FindControl<Button>("IncludeButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             var dialog = Assert.IsType<FilterDialog>(Assert.Single(window.OwnedWindows));
             dialog.FindControl<Button>("CancelButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Dispatcher.UIThread.RunJobs();

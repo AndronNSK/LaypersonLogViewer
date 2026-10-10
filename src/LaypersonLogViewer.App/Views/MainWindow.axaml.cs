@@ -14,6 +14,7 @@ public partial class MainWindow : Window
 {
     private TextBox? _activeLogText;
     private bool _openingFile;
+    private GridLength _lowerPaneHeight = new(210);
 
     public MainWindow()
     {
@@ -27,6 +28,19 @@ public partial class MainWindow : Window
     }
 
     private MainWindowViewModel ViewModel => (MainWindowViewModel)DataContext!;
+
+    private void LowerPaneToggle_Click(object? sender, RoutedEventArgs e)
+    {
+        var visible = !LowerPane.IsVisible;
+        var row = MainLayout.RowDefinitions[3];
+        if (!visible) _lowerPaneHeight = row.Height;
+        row.MinHeight = visible ? 150 : 0;
+        row.Height = visible ? _lowerPaneHeight : new GridLength(0);
+        LowerPane.IsVisible = visible;
+        LowerPaneDivider.IsEnabled = visible;
+        LowerPaneToggle.Content = visible ? "▾" : "▴";
+        ToolTip.SetTip(LowerPaneToggle, visible ? "Скрыть фильтры и статистику" : "Показать фильтры и статистику");
+    }
 
     private bool CanOpenFile => !_openingFile && !ViewModel.IsBusy && !_transferringPatterns
         && IsEnabled && OwnedWindows.Count == 0 && !_streamWindowClosed;
@@ -104,7 +118,12 @@ public partial class MainWindow : Window
             .FirstOrDefault(text => text.SelectionStart != text.SelectionEnd)?.SelectedText ?? "";
         var filter = await new FilterDialog(kind, initialText, addingCondition: parent is not null).ShowDialog<LogFilter?>(this);
         if (filter is null) return;
+        await ApplyFilterAsync(filter, parent);
+    }
 
+    private async Task ApplyFilterAsync(LogFilter filter, LogFilter? parent = null)
+    {
+        if (ViewModel.IsBusy) return;
         // TextBox keeps selection across focus changes; only the row rebuild needs help.
         var selections = new Dictionary<LogLine, (int Start, int End)>(ReferenceEqualityComparer.Instance);
         foreach (var text in LogLines.GetVisualDescendants().OfType<TextBox>())
@@ -133,8 +152,8 @@ public partial class MainWindow : Window
         // Keep the exact selection before opening a popup or dialog changes focus.
         var selectedText = text.SelectedText;
         var canAdd = !ViewModel.IsBusy && !string.IsNullOrWhiteSpace(selectedText);
-        var include = new MenuItem { Header = "Показать строки…", IsEnabled = canAdd };
-        var exclude = new MenuItem { Header = "Скрыть строки…", IsEnabled = canAdd };
+        var include = new MenuItem { Header = "Показать строки", IsEnabled = canAdd };
+        var exclude = new MenuItem { Header = "Скрыть строки", IsEnabled = canAdd };
         var selectionStart = Math.Min(text.SelectionStart, text.SelectionEnd);
         var canSetTimestamp = canAdd && selectedText.Any(char.IsAsciiDigit);
         var timestamp = new MenuItem { Header = "Начало записи по времени…", IsEnabled = canSetTimestamp };
@@ -148,12 +167,12 @@ public partial class MainWindow : Window
         include.Click += async (_, _) =>
         {
             menu.Close();
-            if (canAdd) await AddFilterAsync(FilterKind.Include, selectedText);
+            if (canAdd) await ApplyFilterAsync(new LogFilter(FilterKind.Include, selectedText));
         };
         exclude.Click += async (_, _) =>
         {
             menu.Close();
-            if (canAdd) await AddFilterAsync(FilterKind.Exclude, selectedText);
+            if (canAdd) await ApplyFilterAsync(new LogFilter(FilterKind.Exclude, selectedText));
         };
         timestamp.Click += async (_, _) =>
         {

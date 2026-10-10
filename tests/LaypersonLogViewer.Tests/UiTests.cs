@@ -24,6 +24,63 @@ public sealed class UiTests
     private static void Click(Button button) => button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
     [AvaloniaFact]
+    public async Task HidingLowerPaneExpandsLogAndRestoresSizeTabAndPatterns()
+    {
+        var window = new MainWindow();
+        window.Show();
+        try
+        {
+            var model = (MainWindowViewModel)window.DataContext!;
+            await model.AddFilterAsync(new LogFilter(FilterKind.Include, "ERROR"));
+            model.Statistics.SavePattern(StatisticsTests.Pattern());
+            var tabs = window.FindControl<TabControl>("LowerTabs")!;
+            tabs.SelectedIndex = 1;
+            var grid = window.FindControl<Grid>("MainLayout")!;
+            grid.RowDefinitions[3].Height = new GridLength(260);
+            window.UpdateLayout();
+            var log = window.FindControl<ListBox>("LogLines")!;
+            var toggle = window.FindControl<Button>("LowerPaneToggle")!;
+            var pane = window.FindControl<Border>("LowerPane")!;
+            var divider = window.FindControl<GridSplitter>("LowerPaneDivider")!;
+            window.MouseMove(new Point(0, 0));
+            var dragStart = divider.TranslatePoint(new Point(40, 2), window)!.Value;
+            var paneHeight = pane.Bounds.Height;
+            window.MouseDown(dragStart, Avalonia.Input.MouseButton.Left);
+            window.MouseMove(dragStart + new Vector(0, -30), Avalonia.Input.RawInputModifiers.LeftMouseButton);
+            window.MouseUp(dragStart + new Vector(0, -30), Avalonia.Input.MouseButton.Left);
+            window.UpdateLayout();
+            Assert.True(pane.Bounds.Height > paneHeight);
+            var savedHeight = grid.RowDefinitions[3].Height;
+            var initialHeight = log.Bounds.Height;
+            for (var i = 0; i < 2; i++)
+            {
+                var arrowPoint = toggle.TranslatePoint(new Point(18, 6), window)!.Value;
+                window.MouseDown(arrowPoint, Avalonia.Input.MouseButton.Left);
+                window.MouseUp(arrowPoint, Avalonia.Input.MouseButton.Left);
+                window.UpdateLayout();
+                Assert.False(pane.IsVisible);
+                Assert.False(divider.IsEnabled);
+                Assert.True(toggle.IsEffectivelyVisible);
+                Assert.Equal("▴", toggle.Content);
+                Assert.True(log.Bounds.Height > initialHeight + 200);
+                Assert.InRange(grid.RowDefinitions[3].ActualHeight, 0, grid.RowSpacing);
+                Click(toggle);
+                window.UpdateLayout();
+                Assert.True(pane.IsVisible);
+                Assert.True(divider.IsVisible);
+                Assert.True(divider.IsEnabled);
+                Assert.Equal("▾", toggle.Content);
+                Assert.Equal(savedHeight, grid.RowDefinitions[3].Height);
+                Assert.Equal(initialHeight, log.Bounds.Height, precision: 3);
+                Assert.Equal(1, tabs.SelectedIndex);
+                Assert.Single(model.Filters);
+                Assert.Single(model.Statistics.Patterns);
+            }
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
     public async Task DisplaySwitchRestoresContextAndDimsOnlyFilteredOutRows()
     {
         var window = new MainWindow();

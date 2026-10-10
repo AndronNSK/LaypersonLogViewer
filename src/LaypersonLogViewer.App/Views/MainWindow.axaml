@@ -7,7 +7,7 @@
         x:DataType="vm:MainWindowViewModel"
         Title="Layperson · Просмотр журналов" Width="1120" Height="780"
         MinWidth="760" MinHeight="560" Background="#F3F5F8">
-  <Grid Margin="8" RowSpacing="4">
+  <Grid Name="MainLayout" Margin="8" RowSpacing="4">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
       <RowDefinition Height="*" MinHeight="140" />
@@ -30,7 +30,7 @@
         <CheckBox Name="FollowLatestBox" Content="Прокрутка" IsChecked="{Binding Live.FollowLatest}" Margin="0,0,8,0"
                   ToolTip.Tip="Следовать за новыми строками. Нажатие на строку отключает прокрутку; прокрутка до конца включает её." />
         <TextBlock Text="Лимит строк:" VerticalAlignment="Center" Margin="0,0,4,0" />
-        <NumericUpDown Name="RetainedLinesBox" Value="{Binding Live.RetainedLines}" Minimum="100" Maximum="1000000" Increment="1000"
+        <NumericUpDown Name="RetainedLinesBox" Value="{Binding Live.RetainedLines}" Minimum="100" Maximum="1000000" Increment="1000" ShowButtonSpinner="False"
                        Width="110" FormatString="0" ToolTip.Tip="Лимит для потоковых источников; старые строки удаляются. Статистика — по строкам в памяти." />
       </WrapPanel>
       <TextBlock Grid.Row="2" Grid.ColumnSpan="3" Text="{Binding Live.Status}" IsVisible="{Binding Live.HasSession}"
@@ -97,10 +97,16 @@
       </Grid>
     </Border>
 
-    <GridSplitter Grid.Row="2" Height="5" HorizontalAlignment="Stretch" Background="#D9DFE8"
+    <GridSplitter Name="LowerPaneDivider" Grid.Row="2" Height="5" VerticalAlignment="Center"
+                  HorizontalAlignment="Stretch" Background="#D9DFE8"
                   ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" />
+    <Button Name="LowerPaneToggle" Grid.Row="2" Content="▾" Click="LowerPaneToggle_Click"
+            Width="36" Height="12" MinHeight="0" MinWidth="0" Padding="0" FontSize="10"
+            HorizontalAlignment="Center" VerticalAlignment="Center" Cursor="Hand"
+            AutomationProperties.Name="Показать или скрыть фильтры и статистику"
+            ToolTip.Tip="Скрыть фильтры и статистику" />
 
-    <Border Grid.Row="3" Background="White" CornerRadius="4" BorderBrush="#D9DFE8" BorderThickness="1" Padding="8">
+    <Border Name="LowerPane" Grid.Row="3" Background="White" CornerRadius="4" BorderBrush="#D9DFE8" BorderThickness="1" Padding="8">
       <TabControl Name="LowerTabs">
         <TabControl.Styles>
           <Style Selector="TabItem">

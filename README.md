@@ -116,12 +116,14 @@ The generator needs .NET 10 and is not included in the viewer installers.
 
 - One main window with a large, scrollable log pane and a smaller filter pane.
 - Drag the divider to adjust the pane sizes.
+- Click the small arrow in the divider to hide or show the lower pane. Its height,
+  selected tab, filters, and statistics patterns are preserved.
 - **Показать строки…** opens a dialog to add an include filter.
 - **Скрыть строки…** opens a dialog to add an exclude filter.
 - Each filter searches for literal text and can optionally match case.
-- Select text within a log line, then right-click and choose **Показать строки…** or
-  **Скрыть строки…** to open a filter dialog prefilled with that exact selection.
-  Confirm with **Добавить**, or cancel without changing the filters. This works on greyed-out
+- Select text within a log line, then right-click and choose **Показать строки** or
+  **Скрыть строки** to add a case-insensitive filter immediately using that exact selection.
+  The toolbar buttons open an editable dialog prefilled with the selection. This works on greyed-out
   lines too. Empty or whitespace-only selections cannot create filters.
 - Add multiple filters, remove individual filters, or reset all filters.
 - Original line numbers and file order are preserved. Duplicate and empty lines are retained when they match the rules.
