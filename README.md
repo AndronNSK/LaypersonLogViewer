@@ -17,7 +17,9 @@ dotnet restore LaypersonLogViewer.slnx
 dotnet run --project src/LaypersonLogViewer.App
 ```
 
-Open `samples/example.log` using **Открыть файл…**.
+Open `samples/example.log` using **Открыть файл…**, or drop one file anywhere in the
+main window. Folders and multiple-file drops are ignored. Existing filters and statistics
+patterns apply to the newly opened file.
 
 ## Streaming (0.2.0)
 

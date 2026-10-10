@@ -13,35 +13,66 @@ namespace LaypersonLogViewer.App.Views;
 public partial class MainWindow : Window
 {
     private TextBox? _activeLogText;
+    private bool _openingFile;
 
     public MainWindow()
     {
         InitializeComponent();
         DataContext = new MainWindowViewModel();
         InitializeStreaming();
+        DragDrop.SetAllowDrop(this, true);
+        AddHandler(DragDrop.DragOverEvent, File_DragOver, RoutingStrategies.Bubble, handledEventsToo: true);
+        AddHandler(DragDrop.DropEvent, File_Drop, RoutingStrategies.Bubble, handledEventsToo: true);
         Closed += (_, _) => { ViewModel.Live.Dispose(); ViewModel.Statistics.Dispose(); };
     }
 
     private MainWindowViewModel ViewModel => (MainWindowViewModel)DataContext!;
 
-    private async void OpenFile_Click(object? sender, RoutedEventArgs e)
+    private bool CanOpenFile => !_openingFile && !ViewModel.IsBusy && !_transferringPatterns
+        && IsEnabled && OwnedWindows.Count == 0 && !_streamWindowClosed;
+
+    private void File_DragOver(object? sender, DragEventArgs e)
     {
-        if (ViewModel.IsBusy) return;
+        var files = e.DataTransfer.TryGetFiles();
+        e.DragEffects = CanOpenFile && files is { Length: 1 } && files[0] is IStorageFile
+            ? e.DragEffects & DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private async void File_Drop(object? sender, DragEventArgs e)
+    {
+        e.Handled = true;
+        e.DragEffects = DragDropEffects.None;
+        if (!CanOpenFile || e.DataTransfer.TryGetFiles() is not { Length: 1 } files
+            || files[0] is not IStorageFile file) return;
+        e.DragEffects = DragDropEffects.Copy;
+        await OpenFileAsync(() => Task.FromResult<IStorageFile?>(file));
+    }
+
+    private async void OpenFile_Click(object? sender, RoutedEventArgs e) => await OpenFileAsync(async () =>
+    {
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Открыть файл журнала",
+            AllowMultiple = false,
+            FileTypeFilter = new[]
+            {
+                new FilePickerFileType("Файлы журналов") { Patterns = new[] { "*.log", "*.txt", "*.jsonl" } },
+                FilePickerFileTypes.All
+            }
+        });
+        return files.Count == 0 ? null : files[0];
+    });
+
+    private async Task OpenFileAsync(Func<Task<IStorageFile?>> selectFile)
+    {
+        if (!CanOpenFile) return;
+        _openingFile = true;
         _streamTimer.Stop();
         try
         {
-            var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
-            {
-                Title = "Открыть файл журнала",
-                AllowMultiple = false,
-                FileTypeFilter = new[]
-                {
-                    new FilePickerFileType("Файлы журналов") { Patterns = new[] { "*.log", "*.txt", "*.jsonl" } },
-                    FilePickerFileTypes.All
-                }
-            });
-            if (files.Count == 0) return;
-            using var file = files[0];
+            using var file = await selectFile();
+            if (file is null || _streamWindowClosed) return;
             // The storage provider's default sharing can conflict with an active logger.
             // Use explicit sharing for local files; retain provider access for virtual files.
             var localPath = file.TryGetLocalPath();
@@ -55,7 +86,11 @@ public partial class MainWindow : Window
         {
             ViewModel.ReportError($"Не удалось открыть файл: {exception.Message}");
         }
-        finally { if (!_streamWindowClosed) _streamTimer.Start(); }
+        finally
+        {
+            _openingFile = false;
+            if (!_streamWindowClosed) _streamTimer.Start();
+        }
     }
 
     private async void Include_Click(object? sender, RoutedEventArgs e) => await AddFilterAsync(FilterKind.Include);
