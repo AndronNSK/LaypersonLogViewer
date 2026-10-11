@@ -8,6 +8,33 @@ namespace LaypersonLogViewer.Tests;
 public sealed class StreamingTests
 {
     [Fact]
+    public async Task CombinedStatusUpdatesStreamingCountersAndClearsThemAfterDetach()
+    {
+        var model = new MainWindowViewModel();
+        using var stats = model.Statistics;
+        using var live = model.Live;
+        var notified = false;
+        model.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(model.Status)) notified = true; };
+        live.Start("test", (receive, _) =>
+        {
+            receive("INFO first");
+            receive("ERROR second");
+            return Task.FromResult("Поток завершён");
+        });
+        await live.Completion;
+        await live.RefreshAsync(model);
+        Assert.True(notified);
+        Assert.Contains("Показано 2 из 2 строк", model.Status);
+        Assert.Contains(" · Поток завершён · Получено: 2 · В памяти: 2", model.Status);
+        notified = false;
+        live.Detach();
+        Assert.True(notified);
+        Assert.Contains("Показано 2 из 2 строк", model.Status);
+        Assert.DoesNotContain("Получено", model.Status);
+        Assert.False(model.Status.EndsWith(" · ", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task IncomingBatchDoesNotToggleBusyOrRefreshToolbarBindings()
     {
         var model = new MainWindowViewModel();

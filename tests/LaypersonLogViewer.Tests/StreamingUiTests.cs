@@ -8,6 +8,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using LaypersonLogViewer.App.ViewModels;
 using LaypersonLogViewer.App.Views;
+using LaypersonLogViewer.Core;
 
 namespace LaypersonLogViewer.Tests;
 
@@ -68,7 +69,7 @@ public sealed class StreamingUiTests
     [AvaloniaFact]
     public void CommandDialogCancelDoesNotStartCapture()
     {
-        var window = new MainWindow();
+        var window = new MainWindow(new CommandHistory());
         window.Show();
         try
         {

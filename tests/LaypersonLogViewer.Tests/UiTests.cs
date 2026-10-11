@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using LaypersonLogViewer.App.ViewModels;
@@ -23,6 +24,46 @@ public sealed class UiTests
 {
     private static void Click(Button button) => button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
+    [AvaloniaTheory]
+    [InlineData(760, false)]
+    [InlineData(760, true)]
+    [InlineData(1120, false)]
+    [InlineData(1120, true)]
+    public async Task CompactToolbarKeepsMovedControlsWithinWindow(double width, bool grouped)
+    {
+        var window = new MainWindow { Width = width };
+        window.Show();
+        try
+        {
+            var model = (MainWindowViewModel)window.DataContext!;
+            if (grouped) await model.SetTimestampPatternAsync(new TimestampPattern("2026-10-11", 0));
+            window.UpdateLayout();
+            var toolbar = window.FindControl<Grid>("MainToolbar")!;
+            var toolbarBottom = toolbar.TranslatePoint(default, window)!.Value.Y + toolbar.Bounds.Height;
+            var controls = new Control[]
+            {
+                window.FindControl<Button>("OpenFileButton")!,
+                window.FindControl<CheckBox>("WordWrapBox")!,
+                window.FindControl<ToggleSwitch>("ShowFilteredOutSwitch")!,
+                window.FindControl<NumericUpDown>("RetainedLinesBox")!
+            };
+            var reset = window.FindControl<Button>("ResetTimestampButton")!;
+            Assert.Equal(grouped, reset.IsVisible);
+            foreach (var control in grouped ? controls.Append(reset) : controls)
+            {
+                Assert.True(control.IsEffectivelyVisible);
+                Assert.True(control.Bounds.Width > 0);
+                var position = control.TranslatePoint(default, window)!.Value;
+                Assert.InRange(position.X, 0, window.Bounds.Width - control.Bounds.Width);
+                Assert.InRange(position.Y, 0, toolbarBottom - control.Bounds.Height);
+            }
+            if (width == 1120) Assert.InRange(toolbar.Bounds.Height, 0, 100);
+            var log = window.FindControl<ListBox>("LogLines")!;
+            Assert.InRange(log.TranslatePoint(default, window)!.Value.Y - toolbarBottom, 0, 10);
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public async Task HidingLowerPaneExpandsLogAndRestoresSizeTabAndPatterns()
     {
@@ -40,6 +81,7 @@ public sealed class UiTests
             window.UpdateLayout();
             var log = window.FindControl<ListBox>("LogLines")!;
             var toggle = window.FindControl<Button>("LowerPaneToggle")!;
+            var chevron = window.FindControl<Avalonia.Controls.Shapes.Path>("LowerPaneChevron")!;
             var pane = window.FindControl<Border>("LowerPane")!;
             var divider = window.FindControl<GridSplitter>("LowerPaneDivider")!;
             window.MouseMove(new Point(0, 0));
@@ -54,22 +96,28 @@ public sealed class UiTests
             var initialHeight = log.Bounds.Height;
             for (var i = 0; i < 2; i++)
             {
-                var arrowPoint = toggle.TranslatePoint(new Point(18, 6), window)!.Value;
+                var arrowPoint = toggle.TranslatePoint(new Point(toggle.Bounds.Width / 2, toggle.Bounds.Height / 2), window)!.Value;
                 window.MouseDown(arrowPoint, Avalonia.Input.MouseButton.Left);
                 window.MouseUp(arrowPoint, Avalonia.Input.MouseButton.Left);
                 window.UpdateLayout();
                 Assert.False(pane.IsVisible);
                 Assert.False(divider.IsEnabled);
                 Assert.True(toggle.IsEffectivelyVisible);
-                Assert.Equal("▴", toggle.Content);
+                Assert.Contains("collapsed", toggle.Classes);
+                Assert.Equal(180, Assert.IsType<RotateTransform>(chevron.RenderTransform).Angle);
+                Assert.Equal("Показать фильтры и статистику", ToolTip.GetTip(toggle));
                 Assert.True(log.Bounds.Height > initialHeight + 200);
                 Assert.InRange(grid.RowDefinitions[3].ActualHeight, 0, grid.RowSpacing);
-                Click(toggle);
+                arrowPoint = toggle.TranslatePoint(new Point(toggle.Bounds.Width / 2, toggle.Bounds.Height / 2), window)!.Value;
+                window.MouseDown(arrowPoint, Avalonia.Input.MouseButton.Left);
+                window.MouseUp(arrowPoint, Avalonia.Input.MouseButton.Left);
                 window.UpdateLayout();
                 Assert.True(pane.IsVisible);
                 Assert.True(divider.IsVisible);
                 Assert.True(divider.IsEnabled);
-                Assert.Equal("▾", toggle.Content);
+                Assert.DoesNotContain("collapsed", toggle.Classes);
+                Assert.Null(chevron.RenderTransform);
+                Assert.Equal("Скрыть фильтры и статистику", ToolTip.GetTip(toggle));
                 Assert.Equal(savedHeight, grid.RowDefinitions[3].Height);
                 Assert.Equal(initialHeight, log.Bounds.Height, precision: 3);
                 Assert.Equal(1, tabs.SelectedIndex);

@@ -19,7 +19,7 @@ dotnet run --project src/LaypersonLogViewer.App
 
 Open `samples/example.log` using **Открыть файл…**, or drop one file anywhere in the
 main window. Folders and multiple-file drops are ignored. Existing filters and statistics
-patterns apply to the newly opened file.
+patterns apply to the newly opened file. Local files are read from the beginning and followed automatically.
 
 ## Streaming (0.2.0)
 
@@ -35,12 +35,16 @@ On Linux with the installed package:
 my-command 2>&1 | layperson-log-viewer --stdin
 ```
 
-- **Следить за файлом…** reads an existing UTF-8 file and follows appended text.
+- **Открыть файл…** reads an existing UTF-8 file and follows appended text. Drag-and-drop does the same.
   It detects truncation and rename/replacement, and waits if the file temporarily disappears.
   Incomplete lines wait for their newline; stopping or rotation retains the final fragment.
 - **Запустить команду…** accepts an executable, arguments, and working directory. Both stdout
   and stderr are captured concurrently as UTF-8. There is no interactive stdin. Shell syntax
   requires explicitly launching a shell (for example `powershell.exe` or `/bin/sh`).
+  **Недавние команды** restores the executable, arguments, and working directory into editable fields.
+  The last 20 confirmed commands are kept, newest first; repeats move to the top and cancellation
+  changes nothing. History is saved to `command-history.json` in the application's local data folder
+  (`%LOCALAPPDATA%\LaypersonLogViewer` on Windows). Loading or saving errors are shown without blocking launch.
 - **Стоп** stops capture; for a command started by the viewer it terminates that process and
   its descendants. Closing the window or replacing the source also stops that command.
   Piped producers are external processes and are not terminated by the viewer.
@@ -50,13 +54,14 @@ my-command 2>&1 | layperson-log-viewer --stdin
 - **Пауза показа** freezes displayed lines and their statistics, while capture continues.
   Resuming displays the current retained data.
 - **Лимит строк** defaults to 10,000 (100–1,000,000). Oldest received lines are discarded;
-  original receipt numbers remain. This limit applies to streams, not ordinary file opening.
+  original receipt numbers remain. This limit applies to opened files and all other streaming sources.
   Evicting part of a multiline entry can leave its beginning outside the retained data.
 - **Сохранить журнал…** saves a UTF-8 snapshot of all retained lines, including excluded
   lines and arrivals during pause. The snapshot is taken when the button is pressed.
 
 The UI processes snapshots approximately every 500 ms, when no other operation or editor
-is active. Existing rows and text controls are retained while new rows are inserted and
+is active. Streaming status and received/retained line counters appear at the bottom of the window.
+Existing rows and text controls are retained while new rows are inserted and
 expired rows are removed, so text selection continues during incoming batches.
 Filters, timestamp grouping, and statistics use those snapshots; statistics cover
 retained data, not the entire history of the stream. EOF or process exit leaves captured
@@ -100,7 +105,7 @@ On Linux, after building the solution:
 
 For **Запустить команду…**, enter the full path to the generator executable and put
 `--interval-ms 100` in the arguments field. The viewer captures stdout and stderr together.
-For **Следить за файлом…**, run the generator with `--file fake.log`, then select that file.
+For **Открыть файл…**, run the generator with `--file fake.log`, then select that file.
 Relative file paths are resolved against the generator's working directory.
 
 Options: `--interval-ms N` (default 500, minimum 1), `--count N` (positive entry count;
@@ -182,7 +187,8 @@ not regular expressions.
    and blank line. Searching for `IOException` also keeps that entire entry. An exclude
    match on any continuation line removes the whole entry.
 
-The grey-out switch also applies to complete entries. **Сбросить шаблон** returns to
+Word wrapping and the grey-out switch are in the top toolbar. The grey-out switch
+also applies to complete entries. **Сбросить шаблон**, beside the source controls, returns to
 line-by-line filtering while keeping your filters and display mode. Repeating the selection
 workflow replaces the pattern. The pattern stays active when opening another file, but is
 not saved between app launches. If it finds no timestamps, all lines form one entry and

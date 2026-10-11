@@ -7,6 +7,22 @@
         x:DataType="vm:MainWindowViewModel"
         Title="Layperson · Просмотр журналов" Width="1120" Height="780"
         MinWidth="760" MinHeight="560" Background="#F3F5F8">
+  <Window.Styles>
+    <Style Selector="Button.panel-grip">
+      <Setter Property="Background" Value="#F3F5F8" />
+      <Setter Property="BorderBrush" Value="#BAC6D3" />
+    </Style>
+    <Style Selector="Button.panel-grip:pointerover">
+      <Setter Property="Background" Value="#DCE6F0" />
+      <Setter Property="BorderBrush" Value="#9DADBE" />
+    </Style>
+    <Style Selector="Button.panel-grip:pressed">
+      <Setter Property="Background" Value="#CBD9E8" />
+    </Style>
+    <Style Selector="Button.panel-grip.collapsed Path">
+      <Setter Property="RenderTransform"><RotateTransform Angle="180" /></Setter>
+    </Style>
+  </Window.Styles>
   <Grid Name="MainLayout" Margin="8" RowSpacing="4">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
@@ -15,17 +31,33 @@
       <RowDefinition Height="210" MinHeight="150" />
       <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
-    <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="2">
-      <TextBlock Text="Просмотр журналов" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
-      <TextBlock Grid.Column="1" Text="{Binding FileName}" ToolTip.Tip="{Binding FileName}"
+    <Grid Name="MainToolbar" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="2">
+      <TextBlock Text="{Binding FileName}" ToolTip.Tip="{Binding FileName}"
                  Foreground="#526174" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-      <Button Grid.Column="2" Name="OpenFileButton" Content="Открыть файл…" Click="OpenFile_Click"
-              IsEnabled="{Binding !IsBusy}" VerticalAlignment="Center" />
-      <WrapPanel Grid.Row="1" Grid.ColumnSpan="3">
-        <Button Name="FollowFileButton" Content="Следить за файлом…" Click="FollowFile_Click" IsEnabled="{Binding !IsBusy}" Margin="0,0,4,0" />
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Button Name="OpenFileButton" Content="Открыть файл…" Click="OpenFile_Click"
+                IsEnabled="{Binding !IsBusy}" VerticalAlignment="Center"
+                ToolTip.Tip="Открыть файл журнала и следить за новыми строками" />
+        <CheckBox Name="WordWrapBox" Content="Перенос строк"
+                  IsChecked="{Binding WordWrap, Mode=TwoWay}" VerticalAlignment="Center"
+                  ToolTip.Tip="Переносить длинные строки по ширине окна" />
+        <ToggleSwitch Name="ShowFilteredOutSwitch" VerticalAlignment="Center"
+                      IsChecked="{Binding ShowFilteredOut, Mode=TwoWay}"
+                      OffContent="Скрывать отфильтрованные" OnContent="Отфильтрованные — серым"
+                      ToolTip.Tip="Показывать отфильтрованные строки серым, сохраняя контекст">
+          <ToggleSwitch.Resources>
+            <GridLength x:Key="ToggleSwitchPreContentMargin">2</GridLength>
+            <GridLength x:Key="ToggleSwitchPostContentMargin">2</GridLength>
+          </ToggleSwitch.Resources>
+        </ToggleSwitch>
+      </StackPanel>
+      <WrapPanel Name="SourceToolbar" Grid.Row="1" Grid.ColumnSpan="2">
         <Button Name="StartCommandButton" Content="Запустить команду…" Click="StartCommand_Click" IsEnabled="{Binding !IsBusy}" Margin="0,0,4,0" />
         <Button Name="StopStreamButton" Content="Стоп" Click="StopStream_Click" IsEnabled="{Binding Live.IsActive}" Margin="0,0,4,0" />
         <Button Name="SaveLogButton" Content="Сохранить журнал…" Click="SaveLog_Click" Margin="0,0,8,0" />
+        <Button Name="ResetTimestampButton" Content="Сбросить шаблон"
+                IsVisible="{Binding HasTimestampPattern}" IsEnabled="{Binding !IsBusy}"
+                VerticalAlignment="Center" Click="ResetTimestamp_Click" Margin="0,0,8,0" />
         <CheckBox Name="PauseStreamBox" Content="Пауза показа" IsChecked="{Binding Live.IsPaused}" IsEnabled="{Binding Live.HasSession}" Margin="0,0,8,0" />
         <CheckBox Name="FollowLatestBox" Content="Прокрутка" IsChecked="{Binding Live.FollowLatest}" Margin="0,0,8,0"
                   ToolTip.Tip="Следовать за новыми строками. Нажатие на строку отключает прокрутку; прокрутка до конца включает её." />
@@ -33,34 +65,11 @@
         <NumericUpDown Name="RetainedLinesBox" Value="{Binding Live.RetainedLines}" Minimum="100" Maximum="1000000" Increment="1000" ShowButtonSpinner="False"
                        Width="110" FormatString="0" ToolTip.Tip="Лимит для потоковых источников; старые строки удаляются. Статистика — по строкам в памяти." />
       </WrapPanel>
-      <TextBlock Grid.Row="2" Grid.ColumnSpan="3" Text="{Binding Live.Status}" IsVisible="{Binding Live.HasSession}"
-                 FontSize="11" Foreground="#526174" TextWrapping="Wrap" />
     </Grid>
 
     <Border Grid.Row="1" Background="White" BorderBrush="#D9DFE8" BorderThickness="1" CornerRadius="4" ClipToBounds="True">
-      <Grid RowDefinitions="Auto,*">
-        <Border Name="LogHeader" Background="#EAF0F6" Padding="8,2">
-          <Border.Resources>
-            <GridLength x:Key="ToggleSwitchPreContentMargin">2</GridLength>
-            <GridLength x:Key="ToggleSwitchPostContentMargin">2</GridLength>
-          </Border.Resources>
-          <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8">
-            <TextBlock Text="СТРОКИ ЖУРНАЛА" FontSize="11" FontWeight="SemiBold" Foreground="#526174" VerticalAlignment="Center" />
-            <TextBlock Grid.Column="1" Text="{Binding GroupingDescription}" ToolTip.Tip="{Binding GroupingDescription}"
-                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center" FontSize="11" Foreground="#526174" />
-            <Button Grid.Column="2" Name="ResetTimestampButton" Content="Сбросить шаблон"
-                    IsVisible="{Binding HasTimestampPattern}" IsEnabled="{Binding !IsBusy}"
-                    MinHeight="24" Padding="8,1" VerticalAlignment="Center" Click="ResetTimestamp_Click" />
-            <CheckBox Grid.Column="3" Name="WordWrapBox" Content="Перенос строк"
-                      IsChecked="{Binding WordWrap, Mode=TwoWay}" VerticalAlignment="Center"
-                      ToolTip.Tip="Переносить длинные строки по ширине окна" />
-            <ToggleSwitch Grid.Column="4" Name="ShowFilteredOutSwitch" VerticalAlignment="Center"
-                          IsChecked="{Binding ShowFilteredOut, Mode=TwoWay}"
-                          OffContent="Скрывать отфильтрованные" OnContent="Отфильтрованные — серым"
-                          ToolTip.Tip="Показывать отфильтрованные строки серым, сохраняя контекст" />
-          </Grid>
-        </Border>
-        <ListBox Grid.Row="1" Name="LogLines" ItemsSource="{Binding DisplayLines}" BorderThickness="0"
+      <Grid>
+        <ListBox Name="LogLines" ItemsSource="{Binding DisplayLines}" BorderThickness="0"
                  Background="Transparent" SelectionMode="Multiple" FontFamily="Consolas, monospace"
                  FontSize="13" ScrollViewer.HorizontalScrollBarVisibility="{Binding LogHorizontalScrollBarVisibility}"
                  ScrollViewer.BringIntoViewOnFocusChange="False"
@@ -92,7 +101,7 @@
             </DataTemplate>
           </ListBox.ItemTemplate>
         </ListBox>
-        <TextBlock Grid.Row="1" Text="{Binding EmptyMessage}" IsVisible="{Binding IsEmpty}"
+        <TextBlock Text="{Binding EmptyMessage}" IsVisible="{Binding IsEmpty}"
                    IsHitTestVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#738297" />
       </Grid>
     </Border>
@@ -100,19 +109,63 @@
     <GridSplitter Name="LowerPaneDivider" Grid.Row="2" Height="5" VerticalAlignment="Center"
                   HorizontalAlignment="Stretch" Background="#D9DFE8"
                   ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" />
-    <Button Name="LowerPaneToggle" Grid.Row="2" Content="▾" Click="LowerPaneToggle_Click"
-            Width="36" Height="12" MinHeight="0" MinWidth="0" Padding="0" FontSize="10"
+    <Button Name="LowerPaneToggle" Classes="panel-grip" Grid.Row="2" Click="LowerPaneToggle_Click"
+            Width="64" Height="18" MinHeight="0" MinWidth="0" Padding="0"
+            BorderThickness="1"
             HorizontalAlignment="Center" VerticalAlignment="Center" Cursor="Hand"
             AutomationProperties.Name="Показать или скрыть фильтры и статистику"
-            ToolTip.Tip="Скрыть фильтры и статистику" />
+            ToolTip.Tip="Скрыть фильтры и статистику">
+      <Button.Template>
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6">
+            <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Button.Template>
+      <StackPanel Orientation="Horizontal" Spacing="6" IsHitTestVisible="False">
+        <Rectangle Width="14" Height="2" Fill="#9DADBE" VerticalAlignment="Center" />
+        <Path Name="LowerPaneChevron" Width="10" Height="6" Data="M 1,1 L 5,5 L 9,1"
+              Stroke="#526174" StrokeThickness="1.5" />
+        <Rectangle Width="14" Height="2" Fill="#9DADBE" VerticalAlignment="Center" />
+      </StackPanel>
+    </Button>
 
     <Border Name="LowerPane" Grid.Row="3" Background="White" CornerRadius="4" BorderBrush="#D9DFE8" BorderThickness="1" Padding="8">
       <TabControl Name="LowerTabs">
         <TabControl.Styles>
           <Style Selector="TabItem">
             <Setter Property="MinHeight" Value="28" />
-            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="Padding" Value="12,4" />
+            <Setter Property="Margin" Value="0,0,4,4" />
             <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Background" Value="#EFF2F6" />
+            <Setter Property="Foreground" Value="#39485C" />
+            <Setter Property="BorderBrush" Value="#BCC7D4" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+              <ControlTemplate>
+                <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4"
+                        Padding="{TemplateBinding Padding}">
+                  <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Header}"
+                                    ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+              </ControlTemplate>
+            </Setter>
+          </Style>
+          <Style Selector="TabItem:pointerover">
+            <Setter Property="Background" Value="#E3EAF4" />
+            <Setter Property="BorderBrush" Value="#7B97BC" />
+          </Style>
+          <Style Selector="TabItem:selected">
+            <Setter Property="Background" Value="#DDEBFF" />
+            <Setter Property="Foreground" Value="#163D70" />
+            <Setter Property="BorderBrush" Value="#3974C5" />
           </Style>
         </TabControl.Styles>
         <TabItem Header="Фильтры">
@@ -175,7 +228,8 @@
     </Border>
 
     <StackPanel Grid.Row="4" Spacing="2">
-      <TextBlock Text="{Binding Status}" Foreground="#526174" FontSize="11" TextWrapping="Wrap" />
+      <TextBlock Text="{Binding Status}" ToolTip.Tip="{Binding Status}" Foreground="#526174" FontSize="11"
+                 TextTrimming="CharacterEllipsis" />
       <TextBlock Text="{Binding GroupingWarning}" IsVisible="{Binding HasGroupingWarning}" Foreground="#986000" TextWrapping="Wrap" />
       <TextBlock Text="{Binding Error}" IsVisible="{Binding HasError}" Foreground="#B42318" TextWrapping="Wrap" />
     </StackPanel>

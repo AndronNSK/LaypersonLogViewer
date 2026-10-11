@@ -28,6 +28,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         Filters = new ReadOnlyObservableCollection<LogFilter>(_filters);
         Statistics = new StatisticsViewModel();
+        Live.PropertyChanged += (_, e) =>
+        {
+            if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(Live.Status))
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Status)));
+        };
     }
 
     public StatisticsViewModel Statistics { get; }
@@ -106,9 +111,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public bool IsEmpty => DisplayLines.Count == 0;
     public string EmptyMessage => _fileName is null ? "Откройте файл журнала, чтобы начать"
         : _allLines.Count == 0 ? "Файл пуст" : "Нет строк, соответствующих фильтрам";
-    public string Status => _isBusy ? "Обработка…"
+    public string Status => (_isBusy ? "Обработка…"
         : $"Показано {DisplayLines.Count:N0} из {_allLines.Count:N0} строк · Совпадений: {_visibleLines.Count:N0} · Фильтров: {_filters.Count}"
-          + (HasTimestampPattern ? $" · Записей подходит: {_matchingEntryCount:N0} из {_entryCount:N0}" : "");
+          + (HasTimestampPattern ? $" · Записей подходит: {_matchingEntryCount:N0} из {_entryCount:N0}" : ""))
+          + (Live.HasSession && Live.Status.Length > 0 ? " · " + Live.Status : "");
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

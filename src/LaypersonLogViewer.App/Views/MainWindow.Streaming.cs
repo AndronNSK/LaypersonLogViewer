@@ -15,6 +15,7 @@ public partial class MainWindow
 {
     private readonly DispatcherTimer _streamTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private bool _streamRefreshing, _streamWindowClosed;
+    private bool _openingCommand;
     private void InitializeStreaming()
     {
         LogLines.AddHandler(PointerPressedEvent, (_, e) =>
@@ -89,44 +90,30 @@ public partial class MainWindow
         });
     }
 
-    private async void FollowFile_Click(object? sender, RoutedEventArgs e)
-    {
-        if (ViewModel.IsBusy) return;
-        _streamTimer.Stop();
-        try
-        {
-            var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
-            { Title = "Следить за файлом (UTF-8)", AllowMultiple = false });
-            if (files.Count == 0) return;
-            using var file = files[0];
-            if (file.TryGetLocalPath() is not { } path)
-            { ViewModel.ReportError("Наблюдение доступно только для локального файла."); return; }
-            ViewModel.Live.Start(path, async (receive, token) =>
-            {
-                await LiveLogSources.FollowFileAsync(path, receive, token);
-                return "Остановлено";
-            });
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException)
-        { ViewModel.ReportError(exception.Message); }
-        finally { if (!_streamWindowClosed) _streamTimer.Start(); }
-    }
-
     private async void StartCommand_Click(object? sender, RoutedEventArgs e)
     {
-        if (ViewModel.IsBusy) return;
+        if (ViewModel.IsBusy || _openingCommand || OwnedWindows.Count > 0) return;
+        _openingCommand = true;
         _streamTimer.Stop();
         try
         {
-            var command = await new CommandDialog().ShowDialog<CommandRequest?>(this);
+            try { await _commandHistory.LoadAsync(); }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            { ViewModel.ReportError("Не удалось прочитать историю команд: " + error.Message); }
+            if (_streamWindowClosed) return;
+            var command = await new CommandDialog(_commandHistory.Entries).ShowDialog<CommandRequest?>(this);
             if (command is null) return;
+            try { await _commandHistory.RememberAsync(command); }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            { ViewModel.ReportError("Не удалось сохранить историю команд: " + error.Message); }
+            if (_streamWindowClosed) return;
             ViewModel.Live.Start(command.Executable + " " + command.Arguments, async (receive, token) =>
             {
                 var code = await LiveLogSources.RunCommandAsync(command.Executable, command.Arguments, command.Directory, receive, token);
                 return $"Процесс завершён · Код: {code}";
             });
         }
-        finally { if (!_streamWindowClosed) _streamTimer.Start(); }
+        finally { _openingCommand = false; if (!_streamWindowClosed) _streamTimer.Start(); }
     }
 
     private void StopStream_Click(object? sender, RoutedEventArgs e) => ViewModel.Live.Stop();

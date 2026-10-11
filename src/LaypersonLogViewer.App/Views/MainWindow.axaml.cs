@@ -15,9 +15,13 @@ public partial class MainWindow : Window
     private TextBox? _activeLogText;
     private bool _openingFile;
     private GridLength _lowerPaneHeight = new(210);
+    private readonly CommandHistory _commandHistory;
 
-    public MainWindow()
+    public MainWindow() : this(new CommandHistory(CommandHistory.DefaultPath)) { }
+
+    public MainWindow(CommandHistory commandHistory)
     {
+        _commandHistory = commandHistory;
         InitializeComponent();
         DataContext = new MainWindowViewModel();
         InitializeStreaming();
@@ -38,7 +42,7 @@ public partial class MainWindow : Window
         row.Height = visible ? _lowerPaneHeight : new GridLength(0);
         LowerPane.IsVisible = visible;
         LowerPaneDivider.IsEnabled = visible;
-        LowerPaneToggle.Content = visible ? "▾" : "▴";
+        LowerPaneToggle.Classes.Set("collapsed", !visible);
         ToolTip.SetTip(LowerPaneToggle, visible ? "Скрыть фильтры и статистику" : "Показать фильтры и статистику");
     }
 
@@ -87,14 +91,19 @@ public partial class MainWindow : Window
         {
             using var file = await selectFile();
             if (file is null || _streamWindowClosed) return;
-            // The storage provider's default sharing can conflict with an active logger.
-            // Use explicit sharing for local files; retain provider access for virtual files.
-            var localPath = file.TryGetLocalPath();
-            await using var stream = localPath is not null
-                ? LogFileReader.OpenRead(localPath)
-                : await file.OpenReadAsync();
-            ViewModel.Live.Detach();
-            await ViewModel.LoadAsync(file.Name, stream);
+            if (file.TryGetLocalPath() is not { } path)
+            {
+                ViewModel.ReportError("Наблюдение доступно только для локального файла.");
+                return;
+            }
+            // Check access before replacing the current source, allowing active writers.
+            using (LogFileReader.OpenRead(path)) { }
+            ViewModel.ReportError(null);
+            ViewModel.Live.Start(path, async (receive, token) =>
+            {
+                await LiveLogSources.FollowFileAsync(path, receive, token);
+                return "Остановлено";
+            });
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException)
         {
