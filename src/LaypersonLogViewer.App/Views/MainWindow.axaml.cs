@@ -105,7 +105,7 @@ public partial class MainWindow : Window
                 return "Остановлено";
             });
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException)
         {
             ViewModel.ReportError($"Не удалось открыть файл: {exception.Message}");
         }
@@ -113,6 +113,19 @@ public partial class MainWindow : Window
         {
             _openingFile = false;
             if (!_streamWindowClosed) _streamTimer.Start();
+        }
+    }
+
+    public async Task StartFromArgumentsAsync(IReadOnlyList<string> args)
+    {
+        StartupOptions options;
+        try { options = StartupOptions.Parse(args); }
+        catch (ArgumentException error) { ViewModel.ReportError(error.Message); return; }
+        if (options.StandardInput) StartStandardInput();
+        else if (options.FilePath is { } path)
+        {
+            await OpenFileAsync(async () => await StorageProvider.TryGetFileFromPathAsync(Path.GetFullPath(path))
+                ?? throw new FileNotFoundException("Файл не найден.", path));
         }
     }
 

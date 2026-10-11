@@ -1,0 +1,5 @@
+<WixLocalization xmlns="http://wixtoolset.org/schemas/v4/wxl" Culture="en-us">
+  <String Id="ExplorerOptionsTitle" Value="Explorer integration" />
+  <String Id="ExplorerMenuLabel" Value="Add «Открыть в LP LogViewer…» to Explorer's context menu" />
+  <String Id="ExplorerMenuDescription" Value="Open a file by right-clicking it and follow new log lines. On Windows 11, the entry appears under Show more options." />
+</WixLocalization>

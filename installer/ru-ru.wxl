@@ -1,0 +1,5 @@
+<WixLocalization xmlns="http://wixtoolset.org/schemas/v4/wxl" Culture="ru-ru">
+  <String Id="ExplorerOptionsTitle" Value="Интеграция с Проводником" />
+  <String Id="ExplorerMenuLabel" Value="Добавить «Открыть в LP LogViewer…» в меню Проводника" />
+  <String Id="ExplorerMenuDescription" Value="Позволяет открыть файл правой кнопкой мыши и следить за новыми строками. В Windows 11 пункт находится в меню «Показать дополнительные параметры»." />
+</WixLocalization>

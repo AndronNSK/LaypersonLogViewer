@@ -15,6 +15,18 @@
         <Directory Id="INSTALLFOLDER" Name="Layperson Log Viewer" />
       </Directory>
     </StandardDirectory>
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="ExplorerContextMenu" Guid="*">
+        <RegistryKey Root="HKCU" Key="Software\Classes\*\shell\LPLogViewer" ForceDeleteOnUninstall="yes">
+          <RegistryValue Name="MUIVerb" Type="string" Value="Открыть в LP LogViewer…" KeyPath="yes" />
+          <RegistryValue Name="Icon" Type="string" Value="&quot;[INSTALLFOLDER]LaypersonLogViewer.App.exe&quot;,0" />
+          <RegistryValue Name="MultiSelectModel" Type="string" Value="Single" />
+          <RegistryKey Key="command">
+            <RegistryValue Type="string" Value="&quot;[INSTALLFOLDER]LaypersonLogViewer.App.exe&quot; --open &quot;%1&quot;" />
+          </RegistryKey>
+        </RegistryKey>
+      </Component>
+    </DirectoryRef>
     <StandardDirectory Id="ProgramMenuFolder">
       <Directory Id="ApplicationMenuFolder" Name="Layperson Log Viewer">
         <Component Id="StartMenuShortcut" Guid="*">
@@ -38,15 +50,46 @@
       <ComponentGroupRef Id="PublishedFiles" />
       <ComponentRef Id="StartMenuShortcut" />
     </Feature>
+    <Feature Id="ExplorerIntegration" Title="Explorer context menu" Level="1" Display="hidden">
+      <ComponentRef Id="ExplorerContextMenu" />
+    </Feature>
     <Feature Id="DesktopIcon" Title="Desktop shortcut" Level="2">
       <ComponentRef Id="DesktopShortcut" />
     </Feature>
     <Property Id="INSTALLLEVEL" Value="1" />
+    <Property Id="ADD_EXPLORER_MENU" Value="1" />
     <ui:WixUI Id="WixUI_FeatureTree" />
     <UI>
       <!-- Skip the stock placeholder EULA: this project has no application EULA. -->
       <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="CustomizeDlg" Order="2" Condition="NOT Installed" />
       <Publish Dialog="CustomizeDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="2" Condition="NOT Installed" />
+      <!-- Read the planned feature state, including a choice migrated during an upgrade. -->
+      <Publish Dialog="CustomizeDlg" Control="Next" Property="ADD_EXPLORER_MENU" Value="1" Order="2" Condition="&amp;ExplorerIntegration = 3" />
+      <Publish Dialog="CustomizeDlg" Control="Next" Property="ADD_EXPLORER_MENU" Value="{}" Order="3" Condition="&amp;ExplorerIntegration &lt;&gt; 3" />
+      <Publish Dialog="CustomizeDlg" Control="Next" Event="NewDialog" Value="ExplorerOptionsDlg" Order="4" Condition="1" />
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="ExplorerOptionsDlg" Order="4"
+               Condition="NOT Installed OR (WixUI_InstallMode = &quot;Change&quot; AND NOT PATCH)" />
+      <Dialog Id="ExplorerOptionsDlg" Width="370" Height="270" Title="!(loc.ExplorerOptionsTitle)">
+        <Control Id="Banner" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="yes" Text="!(loc.CustomizeDlgBannerBitmap)" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="340" Height="20" Transparent="yes" NoPrefix="yes"
+                 Text="{\WixUI_Font_Title}!(loc.ExplorerOptionsTitle)" />
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="ExplorerMenu" Type="CheckBox" X="20" Y="65" Width="330" Height="30"
+                 Property="ADD_EXPLORER_MENU" CheckBoxValue="1" Text="!(loc.ExplorerMenuLabel)" />
+        <Control Id="Description" Type="Text" X="20" Y="105" Width="330" Height="60" Text="!(loc.ExplorerMenuDescription)" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.WixUIBack)">
+          <Publish Event="NewDialog" Value="CustomizeDlg" Condition="1" />
+        </Control>
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)">
+          <Publish Event="AddLocal" Value="ExplorerIntegration" Order="1" Condition="ADD_EXPLORER_MENU = &quot;1&quot;" />
+          <Publish Event="Remove" Value="ExplorerIntegration" Order="2" Condition="NOT ADD_EXPLORER_MENU" />
+          <Publish Event="NewDialog" Value="VerifyReadyDlg" Order="3" Condition="1" />
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg" Condition="1" />
+        </Control>
+      </Dialog>
     </UI>
   </Package>
 </Wix>

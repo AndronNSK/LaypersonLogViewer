@@ -38,6 +38,10 @@ my-command 2>&1 | layperson-log-viewer --stdin
 - **Открыть файл…** reads an existing UTF-8 file and follows appended text. Drag-and-drop does the same.
   It detects truncation and rename/replacement, and waits if the file temporarily disappears.
   Incomplete lines wait for their newline; stopping or rotation retains the final fragment.
+- The Windows installer has a checkbox, enabled by default, to add **Открыть в LP LogViewer…** to Explorer's file context menu
+  (under **Показать дополнительные параметры** on Windows 11). The entry opens and follows
+  the selected file, and is removed on uninstall. You can also launch the app with
+  `--open "path to file.log"` or a single file path.
 - **Запустить команду…** accepts an executable, arguments, and working directory. Both stdout
   and stderr are captured concurrently as UTF-8. There is no interactive stdin. Shell syntax
   requires explicitly launching a shell (for example `powershell.exe` or `/bin/sh`).

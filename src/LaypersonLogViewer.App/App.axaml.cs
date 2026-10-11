@@ -15,8 +15,7 @@ public partial class App : Application
         {
             var window = new MainWindow();
             desktop.MainWindow = window;
-            if (desktop.Args?.Contains("--stdin") == true)
-                window.Opened += (_, _) => window.StartStandardInput();
+            window.Opened += async (_, _) => await window.StartFromArgumentsAsync(desktop.Args ?? []);
         }
         base.OnFrameworkInitializationCompleted();
     }

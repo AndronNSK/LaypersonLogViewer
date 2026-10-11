@@ -1,16 +1,17 @@
 [CmdletBinding()]
 param(
     [ValidatePattern('^\d+\.\d+\.\d+$')]
-    [string] $Version = '0.2.2',
+    [string] $Version = '0.2.4',
     [ValidateSet('ru-ru', 'en-us')]
     [string] $Culture = 'ru-ru',
-    [switch] $SkipPublish
+    [switch] $SkipPublish,
+    [string] $OutputDirectory
 )
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
 $wix = Join-Path $repoRoot '.tools\wix5\wix.exe'
-$outputDir = Join-Path $repoRoot 'artifacts\installer'
+$outputDir = if ($OutputDirectory) { [IO.Path]::GetFullPath($OutputDirectory) } else { Join-Path $repoRoot 'artifacts\installer' }
 $publishDir = Join-Path $repoRoot 'artifacts\publish\win-x64'
 if (-not (Test-Path -LiteralPath $wix)) {
     throw 'Restore the local WiX .NET tool first. See installer/README.md.'
@@ -98,7 +99,8 @@ $language = if ($Culture -eq 'ru-ru') { '1049' } else { '1033' }
 Push-Location $repoRoot
 try {
     & $wix build (Join-Path $PSScriptRoot 'LaypersonLogViewer.wxs') $payloadSource -arch x64 `
-        -ext WixToolset.UI.wixext -culture $Culture -d "AppVersion=$Version" -d "Language=$language" -o $installer
+        -ext WixToolset.UI.wixext -culture $Culture -loc (Join-Path $PSScriptRoot "$Culture.wxl") `
+        -d "AppVersion=$Version" -d "Language=$language" -o $installer
     if ($LASTEXITCODE -ne 0) { throw "MSI compilation failed (exit $LASTEXITCODE)." }
 }
 finally { Pop-Location }
