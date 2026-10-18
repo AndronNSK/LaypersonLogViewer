@@ -61,7 +61,7 @@
                   ToolTip.Tip="Следовать за новыми строками. Нажатие на строку отключает прокрутку; прокрутка до конца включает её." />
         <TextBlock Text="Лимит строк:" VerticalAlignment="Center" Margin="0,0,4,0" />
         <NumericUpDown Name="RetainedLinesBox" Value="{Binding Live.RetainedLines}" Minimum="100" Maximum="20000000" Increment="1000" ShowButtonSpinner="False"
-                       Width="110" FormatString="0" ToolTip.Tip="Лимит для потоковых источников; старые строки удаляются. Статистика — по строкам в памяти." />
+                       Width="64" Padding="2,0" FormatString="0" ToolTip.Tip="Лимит для потоковых источников; старые строки удаляются. Статистика — по строкам в памяти." />
       </WrapPanel>
     </Grid>
 
