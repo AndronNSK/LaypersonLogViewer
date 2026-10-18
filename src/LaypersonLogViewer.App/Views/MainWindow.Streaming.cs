@@ -29,7 +29,7 @@ public partial class MainWindow
         LogLines.AddHandler(ScrollViewer.ScrollChangedEvent, (_, e) =>
         {
             // Ignore textbox scrolling and layout changes caused by incoming batches.
-            if (_streamRefreshing || ViewModel.IsBusy || e.OffsetDelta.Y == 0
+            if (_streamRefreshing || _navigatingSearch || ViewModel.IsBusy || e.OffsetDelta.Y == 0
                 || e.ExtentDelta.Y != 0 || e.ViewportDelta.Y != 0
                 || e.Source is not ScrollViewer scroll || !ReferenceEquals(scroll.TemplatedParent, LogLines)) return;
             ViewModel.Live.FollowLatest = AtLogBottom(scroll);

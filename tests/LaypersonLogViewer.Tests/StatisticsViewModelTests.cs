@@ -7,6 +7,26 @@ namespace LaypersonLogViewer.Tests;
 public sealed class StatisticsViewModelTests
 {
     [Fact]
+    public async Task RapidSourceChangesLeaveOnlyTheLatestStatisticsAfterAllWorkersFinish()
+    {
+        using var stats = new StatisticsViewModel();
+        stats.SavePattern(StatisticsTests.Pattern());
+        var pending = new List<Task>();
+        for (var i = 0; i < 300; i++)
+        {
+            var lines = StatisticsTests.Lines($"x={i}");
+            stats.SetSources(lines, lines, true);
+            pending.Add(stats.CurrentCalculation);
+            await Task.Yield();
+        }
+        var final = StatisticsTests.Lines("x=999");
+        stats.SetSources(final, final, true);
+        pending.Add(stats.CurrentCalculation);
+        await Task.WhenAll(pending);
+        Assert.Equal("999", Assert.Single(stats.Patterns[0].Values).Mean);
+    }
+
+    [Fact]
     public async Task LiveRefreshKeepsStatisticsRowsAndUpdatesValuesInPlace()
     {
         using var started = new ManualResetEventSlim();

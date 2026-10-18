@@ -66,6 +66,7 @@ public sealed class StatisticsPatternRow(StatisticsPattern pattern) : Observable
 public sealed class StatisticsViewModel : ObservableModel, IDisposable
 {
     private readonly Func<StatisticsPattern, IReadOnlyList<LogLine>, CancellationToken, PatternStatistics> _calculate;
+    private readonly object _calculationGate = new();
     private CancellationTokenSource? _calculation;
     private IReadOnlyList<LogLine> _all = [], _filtered = [];
     private bool _loaded, _disposed;
@@ -146,13 +147,16 @@ public sealed class StatisticsViewModel : ObservableModel, IDisposable
 
     private void Recalculate(bool liveUpdate = false)
     {
-        _calculation?.Cancel();
-        _calculation?.Dispose();
-        _calculation = new CancellationTokenSource();
-        var token = _calculation.Token;
-        var rows = Patterns.ToArray();
-        foreach (var row in rows) row.SetPending(_loaded, liveUpdate);
-        CurrentCalculation = _loaded && !_disposed ? CalculateAsync(rows, SourceLines, token) : Task.CompletedTask;
+        lock (_calculationGate)
+        {
+            _calculation?.Cancel();
+            _calculation?.Dispose();
+            _calculation = new CancellationTokenSource();
+            var token = _calculation.Token;
+            var rows = Patterns.ToArray();
+            foreach (var row in rows) row.SetPending(_loaded, liveUpdate);
+            CurrentCalculation = _loaded && !_disposed ? CalculateAsync(rows, SourceLines, token) : Task.CompletedTask;
+        }
     }
 
     private async Task CalculateAsync(StatisticsPatternRow[] rows, IReadOnlyList<LogLine> lines, CancellationToken token)
@@ -162,8 +166,13 @@ public sealed class StatisticsViewModel : ObservableModel, IDisposable
             foreach (var row in rows)
             {
                 var result = await Task.Run(() => _calculate(row.Pattern, lines, token), token);
-                token.ThrowIfCancellationRequested();
-                row.SetResult(result);
+                // Cancellation and applying a result must be atomic, including when
+                // view models are used without a UI synchronization context.
+                lock (_calculationGate)
+                {
+                    token.ThrowIfCancellationRequested();
+                    row.SetResult(result);
+                }
             }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { }
@@ -171,8 +180,11 @@ public sealed class StatisticsViewModel : ObservableModel, IDisposable
 
     public void Dispose()
     {
-        _disposed = true;
-        _calculation?.Cancel();
-        _calculation?.Dispose();
+        lock (_calculationGate)
+        {
+            _disposed = true;
+            _calculation?.Cancel();
+            _calculation?.Dispose();
+        }
     }
 }

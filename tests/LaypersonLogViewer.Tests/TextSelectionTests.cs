@@ -76,7 +76,7 @@ public sealed class TextSelectionTests
             if (contextMenu)
             {
                 var menu = OpenMenu(window, texts[1]);
-                menu.Items.OfType<MenuItem>().ElementAt(kind == FilterKind.Include ? 0 : 1)
+                menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, kind == FilterKind.Include ? "Показать строки" : "Скрыть строки"))
                     .RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
             }
             else
@@ -131,7 +131,7 @@ public sealed class TextSelectionTests
             if (contextMenu)
             {
                 var menu = OpenMenu(window, text);
-                menu.Items.OfType<MenuItem>().ElementAt(exclude ? 1 : 0)
+                menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, exclude ? "Скрыть строки" : "Показать строки"))
                     .RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
             }
             else
@@ -228,7 +228,7 @@ public sealed class TextSelectionTests
             text.SelectionEnd = 6 + selected.Length;
             Assert.Equal(selected, text.SelectedText);
             var menu = OpenMenu(window, text);
-            var item = menu.Items.OfType<MenuItem>().ElementAt(kind == FilterKind.Include ? 0 : 1);
+            var item = menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, kind == FilterKind.Include ? "Показать строки" : "Скрыть строки"));
             Assert.True(item.IsEnabled);
             item.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
 

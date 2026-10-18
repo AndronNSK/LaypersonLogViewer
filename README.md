@@ -57,7 +57,7 @@ my-command 2>&1 | layperson-log-viewer --stdin
   the checkbox also lets you resume manually.
 - **Пауза показа** freezes displayed lines and their statistics, while capture continues.
   Resuming displays the current retained data.
-- **Лимит строк** defaults to 10,000 (100–1,000,000). Oldest received lines are discarded;
+- **Лимит строк** defaults to 5,000,000 (100–20,000,000). Oldest received lines are discarded;
   original receipt numbers remain. This limit applies to opened files and all other streaming sources.
   Evicting part of a multiline entry can leave its beginning outside the retained data.
 - **Сохранить журнал…** saves a UTF-8 snapshot of all retained lines, including excluded
@@ -72,6 +72,21 @@ retained data, not the entire history of the stream. EOF or process exit leaves 
 lines available for viewing and saving. Source errors and exit codes appear above the log.
 Output buffering in the source program can delay delivery. Ordering between stdout and
 stderr reflects arrival order; it cannot reconstruct a total order across the two streams.
+
+## Search
+
+Click **Найти…** or press **Ctrl+F** to open the compact search bar. Selected log text
+prefills the editable search field. Search matches literal text, including spaces and
+punctuation; **Регистр** enables case sensitivity.
+
+Use **Enter** or **F3** for the next occurrence, and **Shift+Enter** or **Shift+F3** for
+the previous one. The arrow buttons do the same. Search wraps at either end and shows
+the original line number or **Не найдено**. **Escape** or **×** closes the bar.
+
+Search covers the displayed physical lines: hidden lines are skipped, while greyed-out
+lines are included when that mode is enabled. Matches are selected and brought into view,
+including on long lines. Navigating stops automatic scrolling so incoming data does not
+move the result away. Search runs in the background and does not change filters or statistics.
 
 ## Fake log generator
 
@@ -180,11 +195,12 @@ not regular expressions.
 
 1. Open `samples/multiline.log`.
 2. Select just `2026-10-03 12:34:56` in line 2, then right-click and choose
-   **Начало записи по времени…**.
-3. The dialog previews `####-##-## ##:##:##` at position 1 and reports four matching
+   **Начало записи по времени**, the first context-menu item.
+3. The selection is applied immediately. The **Время записей** tab opens and shows
+   `####-##-## ##:##:##` at position 1, the original sample, and four matching
    entry starts in the full file. Each `#` generated from a digit represents any ASCII digit;
    separators, letters, spaces, and the selected starting position must match exactly.
-4. Click **Применить**. Each matching line begins an entry; subsequent lines belong to
+4. Each matching line begins an entry; subsequent lines belong to
    it until the next match. The preamble before the first timestamp is a separate entry,
    so this example has five entries in total.
 5. Add an include filter for `ERROR`: lines 4–7 stay together, including the stack trace
@@ -192,11 +208,12 @@ not regular expressions.
    match on any continuation line removes the whole entry.
 
 Word wrapping and the grey-out switch are in the top toolbar. The grey-out switch
-also applies to complete entries. **Сбросить шаблон**, beside the source controls, returns to
+also applies to complete entries. **Сбросить шаблон**, in **Время записей**, returns to
 line-by-line filtering while keeping your filters and display mode. Repeating the selection
 workflow replaces the pattern. The pattern stays active when opening another file, but is
 not saved between app launches. If it finds no timestamps, all lines form one entry and
-a warning explains how to choose another pattern or reset it.
+a warning in that tab explains how to choose another pattern or reset it. All timestamp
+details and entry counts are in this tab, alongside **Фильтры** and **Статистика**.
 
 This is structural matching, not calendar-date validation. Choose a fixed-width numeric
 timestamp; variable-width prefixes or textual month names that change are not generalized.
@@ -235,12 +252,14 @@ from filtered statistics. Calculations refresh in the background after patterns,
 filters, grouping, or the loaded file change. Regexes have a 100 ms per-line timeout;
 a failed pattern shows an error instead of partial results, while other patterns continue.
 
-Both tabs have **Загрузить…** and **Сохранить…** buttons for separate JSON files.
+The **Фильтры** and **Статистика** tabs have **Загрузить…** and **Сохранить…** buttons for separate JSON files.
 Statistics files include pattern definitions, examples, markings, names, and scope;
 filter files include show/hide groups, child conditions, and each condition's case setting.
 Loading replaces the current set in that tab and recalculates the loaded log. Invalid files
 and cancelled dialogs leave the current set unchanged. Local saves use a temporary file
-and replacement to avoid incomplete files.
+and replacement to avoid incomplete files. Files use UTF-8 with readable Unicode text;
+only the escapes required by JSON, such as quotes, backslashes, and control characters,
+remain escaped. Previously saved files with Unicode escapes still load.
 
 Each launch starts with empty filters and statistics. There is no automatic loading or
 saving; save any definitions you want to reuse before closing. Results and captured values
@@ -299,8 +318,8 @@ Headless means no desktop window needs to appear while tests run.
   picker, open a filter dialog, and call the view model. These files are called code-behind.
 - `Views/FilterDialog.axaml` and its code-behind collect and validate a new filter. Confirming
   returns a `LogFilter`; cancelling returns `null`.
-- `Views/TimestampPatternDialog.axaml` previews the selected entry-start pattern and match
-  count. Confirming returns the pattern; cancellation leaves the current grouping unchanged.
+- The **Время записей** tab in `Views/MainWindow.axaml` shows the active entry-start
+  pattern, counts, and warnings, and lets you reset grouping.
 
 `async Task` methods return work that the caller can await. `await` lets the UI process events
 while that work is unfinished. `Task.Run` moves the file-reading/filtering work off the UI thread;

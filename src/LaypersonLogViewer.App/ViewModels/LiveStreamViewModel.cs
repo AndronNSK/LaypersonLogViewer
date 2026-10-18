@@ -15,7 +15,7 @@ public sealed class LiveStreamViewModel : ObservableModel, IDisposable
     }
     private Session? _session;
     private bool _paused, _follow = true;
-    private int _limit = 10000;
+    private int _limit = LiveLogBuffer.DefaultCapacity;
     private long _displayedRevision = -1;
     public bool HasSession => _session is not null;
     public bool IsActive => _session is { Work.IsCompleted: false };
@@ -25,7 +25,7 @@ public sealed class LiveStreamViewModel : ObservableModel, IDisposable
     public int RetainedLines
     {
         get => _limit;
-        set { _limit = Math.Clamp(value, 100, 1000000); _session?.Buffer.Resize(_limit); Notify(); }
+        set { _limit = Math.Clamp(value, LiveLogBuffer.MinimumCapacity, LiveLogBuffer.MaximumCapacity); _session?.Buffer.Resize(_limit); Notify(); }
     }
     public string Status { get; private set; } = "";
 

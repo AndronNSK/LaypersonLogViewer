@@ -20,7 +20,6 @@ public sealed class EntryViewModelTests
         await Load(model, "2026-10-03 12:34:56 ERROR\n stack\n2026-10-03 12:34:57 INFO\n details");
         await model.AddFilterAsync(new LogFilter(FilterKind.Include, "ERROR"));
         Assert.Single(model.DisplayLines);
-        Assert.Equal(2, await model.PreviewTimestampPatternAsync(Pattern));
         Assert.False(model.HasTimestampPattern);
         await model.SetTimestampPatternAsync(Pattern);
         Assert.Equal(2, model.EntryCount);

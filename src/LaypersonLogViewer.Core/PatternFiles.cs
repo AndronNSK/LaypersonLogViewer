@@ -1,11 +1,16 @@
 using System.Text.Json;
+using System.Text.Encodings.Web;
 
 namespace LaypersonLogViewer.Core;
 
 // Separate document shapes prevent accidentally loading statistics as filters (or vice versa).
 public static class PatternFiles
 {
-    private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions Options = new()
+    {
+        WriteIndented = true,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
     public static async Task WriteFileAsync(string path, byte[] contents)
     {
         var temporary = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(path))!, $"patterns-{Guid.NewGuid():N}.tmp");

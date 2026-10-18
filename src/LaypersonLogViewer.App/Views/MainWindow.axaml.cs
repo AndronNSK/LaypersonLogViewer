@@ -25,17 +25,20 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = new MainWindowViewModel();
         InitializeStreaming();
+        AddHandler(KeyDownEvent, Search_KeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, File_DragOver, RoutingStrategies.Bubble, handledEventsToo: true);
         AddHandler(DragDrop.DropEvent, File_Drop, RoutingStrategies.Bubble, handledEventsToo: true);
-        Closed += (_, _) => { ViewModel.Live.Dispose(); ViewModel.Statistics.Dispose(); };
+        Closed += (_, _) => { ViewModel.Live.Dispose(); ViewModel.Statistics.Dispose(); ViewModel.Search.Dispose(); };
     }
 
     private MainWindowViewModel ViewModel => (MainWindowViewModel)DataContext!;
 
-    private void LowerPaneToggle_Click(object? sender, RoutedEventArgs e)
+    private void LowerPaneToggle_Click(object? sender, RoutedEventArgs e) => SetLowerPaneVisible(!LowerPane.IsVisible);
+
+    private void SetLowerPaneVisible(bool visible)
     {
-        var visible = !LowerPane.IsVisible;
+        if (visible == LowerPane.IsVisible) return;
         var row = MainLayout.RowDefinitions[3];
         if (!visible) _lowerPaneHeight = row.Height;
         row.MinHeight = visible ? 150 : 0;
@@ -43,7 +46,7 @@ public partial class MainWindow : Window
         LowerPane.IsVisible = visible;
         LowerPaneDivider.IsEnabled = visible;
         LowerPaneToggle.Classes.Set("collapsed", !visible);
-        ToolTip.SetTip(LowerPaneToggle, visible ? "Скрыть фильтры и статистику" : "Показать фильтры и статистику");
+        ToolTip.SetTip(LowerPaneToggle, visible ? "Скрыть панель вкладок" : "Показать панель вкладок");
     }
 
     private bool CanOpenFile => !_openingFile && !ViewModel.IsBusy && !_transferringPatterns
@@ -177,13 +180,14 @@ public partial class MainWindow : Window
         var include = new MenuItem { Header = "Показать строки", IsEnabled = canAdd };
         var exclude = new MenuItem { Header = "Скрыть строки", IsEnabled = canAdd };
         var selectionStart = Math.Min(text.SelectionStart, text.SelectionEnd);
-        var canSetTimestamp = canAdd && selectedText.Any(char.IsAsciiDigit);
-        var timestamp = new MenuItem { Header = "Начало записи по времени…", IsEnabled = canSetTimestamp };
+        var canSetTimestamp = canAdd && selectedText.Any(char.IsAsciiDigit)
+            && !selectedText.Contains('\r') && !selectedText.Contains('\n');
+        var timestamp = new MenuItem { Header = "Начало записи по времени", IsEnabled = canSetTimestamp };
         var statistics = new MenuItem { Header = "Создать статистику…" };
         var example = text.Text ?? "";
         var menu = new ContextMenu
         {
-            ItemsSource = new[] { include, exclude, timestamp, statistics },
+            ItemsSource = new[] { timestamp, include, exclude, statistics },
             Placement = e.TryGetPosition(text, out _) ? PlacementMode.Pointer : PlacementMode.Bottom
         };
         include.Click += async (_, _) =>
@@ -201,9 +205,9 @@ public partial class MainWindow : Window
             menu.Close();
             if (!canSetTimestamp || ViewModel.IsBusy) return;
             var pattern = new TimestampPattern(selectedText, selectionStart);
-            var count = await ViewModel.PreviewTimestampPatternAsync(pattern);
-            var accepted = await new TimestampPatternDialog(pattern, count).ShowDialog<TimestampPattern?>(this);
-            if (accepted is not null) await ViewModel.SetTimestampPatternAsync(accepted);
+            await ViewModel.SetTimestampPatternAsync(pattern);
+            SetLowerPaneVisible(true);
+            LowerTabs.SelectedItem = TimestampTab;
         };
         statistics.Click += async (_, _) =>
         {

@@ -8,6 +8,27 @@ namespace LaypersonLogViewer.Tests;
 public sealed class StreamingTests
 {
     [Fact]
+    public void DefaultLimitIsFiveMillionAndBufferAcceptsMoreThanOneMillion()
+    {
+        using var live = new LiveStreamViewModel();
+        Assert.Equal(5_000_000, live.RetainedLines);
+        var defaults = new LiveLogBuffer();
+        for (var index = 0; index < 10_001; index++) defaults.Add("line");
+        Assert.Equal(10_001, defaults.Snapshot().Lines.Length);
+        var larger = new LiveLogBuffer(1_000_001);
+        for (var index = 0; index < 1_000_002; index++) larger.Add("line");
+        var snapshot = larger.Snapshot();
+        Assert.Equal(1_000_001, snapshot.Lines.Length);
+        Assert.Equal(2, snapshot.Lines[0].Number);
+        live.RetainedLines = int.MaxValue;
+        Assert.Equal(20_000_000, live.RetainedLines);
+        live.RetainedLines = 20_000_000;
+        Assert.Equal(20_000_000, live.RetainedLines);
+        live.RetainedLines = 1;
+        Assert.Equal(100, live.RetainedLines);
+    }
+
+    [Fact]
     public async Task CombinedStatusUpdatesStreamingCountersAndClearsThemAfterDetach()
     {
         var model = new MainWindowViewModel();

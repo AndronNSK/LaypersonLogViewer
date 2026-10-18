@@ -37,6 +37,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public StatisticsViewModel Statistics { get; }
     public LiveStreamViewModel Live { get; } = new();
+    public LogSearchViewModel Search { get; } = new();
     public IReadOnlyList<LogLine> AllLines => _allLines;
 
     public async Task<bool> ApplyLiveLinesAsync(string sourceName, IReadOnlyList<LogLine> lines,
@@ -54,7 +55,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         ApplyProjection(projection, liveUpdate: true);
         foreach (var property in new[] { nameof(AllLines), nameof(VisibleLines), nameof(FileName),
             nameof(EntryCount), nameof(MatchingEntryCount), nameof(TimestampStartCount),
-            nameof(GroupingDescription), nameof(GroupingWarning), nameof(HasGroupingWarning),
+            nameof(GroupingDescription), nameof(TimestampEntrySummary), nameof(GroupingWarning), nameof(HasGroupingWarning),
             nameof(IsEmpty), nameof(EmptyMessage), nameof(Status) })
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
         return true;
@@ -100,11 +101,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public int MatchingEntryCount => _matchingEntryCount;
     public int TimestampStartCount => _timestampStartCount;
     public string GroupingDescription => _timestampPattern is null
-        ? "Построчно · Выделите время в строке → правая кнопка → «Начало записи по времени…»"
+        ? "Построчно · Выделите время в строке → правая кнопка → «Начало записи по времени»"
         : $"Начало записи: {_timestampPattern.Shape} · Позиция: {_timestampPattern.StartIndex + 1} · Начал найдено: {_timestampStartCount}";
     public string GroupingWarning => HasTimestampPattern && _allLines.Count > 0 && _timestampStartCount == 0
         ? "Шаблон не найден: весь файл считается одной записью. Выберите другой образец или сбросьте шаблон." : "";
     public bool HasGroupingWarning => GroupingWarning.Length > 0;
+    public string TimestampEntrySummary => HasTimestampPattern
+        ? $"Записей подходит: {_matchingEntryCount:N0} из {_entryCount:N0}" : "";
     public string FilterExplanation => HasTimestampPattern
         ? "В группе — все условия в одной записи. Между группами — ИЛИ. «Скрыть» имеет приоритет."
         : "В группе — все условия в одной строке. Между группами — ИЛИ. «Скрыть» имеет приоритет.";
@@ -112,8 +115,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public string EmptyMessage => _fileName is null ? "Откройте файл журнала, чтобы начать"
         : _allLines.Count == 0 ? "Файл пуст" : "Нет строк, соответствующих фильтрам";
     public string Status => (_isBusy ? "Обработка…"
-        : $"Показано {DisplayLines.Count:N0} из {_allLines.Count:N0} строк · Совпадений: {_visibleLines.Count:N0} · Фильтров: {_filters.Count}"
-          + (HasTimestampPattern ? $" · Записей подходит: {_matchingEntryCount:N0} из {_entryCount:N0}" : ""))
+        : $"Показано {DisplayLines.Count:N0} из {_allLines.Count:N0} строк · Совпадений: {_visibleLines.Count:N0} · Фильтров: {_filters.Count}")
           + (Live.HasSession && Live.Status.Length > 0 ? " · " + Live.Status : "");
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -185,13 +187,6 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             _timestampPattern = pattern;
             ApplyProjection(projection);
         }
-        finally { EndOperation(); }
-    }
-
-    public async Task<int> PreviewTimestampPatternAsync(TimestampPattern pattern)
-    {
-        BeginOperation();
-        try { return await Task.Run(() => _allLines.Count(line => pattern.Matches(line.Text))); }
         finally { EndOperation(); }
     }
 
@@ -290,6 +285,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             _displayRows.InsertRange(index, desired.Skip(index).Take(end - index));
             index = end;
         }
+        Search.SetLines(_showFilteredOut ? _allLines : _visibleLines);
     }
 
     private void BeginOperation()

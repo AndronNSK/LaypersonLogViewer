@@ -10,6 +10,47 @@ public sealed class PatternFileTests
     private static MemoryStream Text(string text) => new(Encoding.UTF8.GetBytes(text));
 
     [Fact]
+    public async Task ExportedPatternsUseReadableUtf8AndPreserveRequiredJsonEscapes()
+    {
+        const string name = "Длительность <запроса> & \"ответ\"";
+        var pattern = StatisticsTests.Pattern() with
+        {
+            Name = name, Expression = @"время=(?<value1>\d+)",
+            Example = "время=12\n\"строка\"", Values = [new("value1", "Время, мс")]
+        };
+        using var statistics = new MemoryStream();
+        await PatternFiles.SaveStatisticsAsync(statistics, new(1, StatisticsScope.Filtered, [pattern]));
+        var json = Encoding.UTF8.GetString(statistics.ToArray());
+        Assert.Contains("Длительность <запроса> &", json);
+        Assert.Contains("Время, мс", json);
+        Assert.Contains("время=(?<value1>", json);
+        Assert.DoesNotContain("\\u", json);
+        statistics.Position = 0;
+        var restored = Assert.Single((await PatternFiles.LoadStatisticsAsync(statistics)).Patterns);
+        Assert.Equal(name, restored.Name);
+        Assert.Equal(pattern.Expression, restored.Expression);
+        Assert.Equal(pattern.Example, restored.Example);
+
+        using var filters = new MemoryStream();
+        const string filterText = "Ошибка \"путь\\файл\"\nследующая";
+        await PatternFiles.SaveFiltersAsync(filters, [new LogFilter(FilterKind.Include, filterText)]);
+        Assert.Contains("Ошибка", Encoding.UTF8.GetString(filters.ToArray()));
+        filters.Position = 0;
+        Assert.Equal(filterText, Assert.Single(await PatternFiles.LoadFiltersAsync(filters)).Text);
+    }
+
+    [Fact]
+    public async Task PreviouslyEscapedUnicodeFilesStillLoad()
+    {
+        using var stream = new MemoryStream();
+        await JsonSerializer.SerializeAsync(stream, new StatisticsSettings(1, StatisticsScope.Filtered,
+            [StatisticsTests.Pattern() with { Name = "Длительность" }]), cancellationToken: TestContext.Current.CancellationToken);
+        Assert.Contains("\\u", Encoding.UTF8.GetString(stream.ToArray()));
+        stream.Position = 0;
+        Assert.Equal("Длительность", Assert.Single((await PatternFiles.LoadStatisticsAsync(stream)).Patterns).Name);
+    }
+
+    [Fact]
     public async Task FiltersRoundTripPreservesGroupsAndRefreshesLogAndStatistics()
     {
         var source = new MainWindowViewModel();

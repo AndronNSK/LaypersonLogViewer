@@ -49,7 +49,8 @@ public sealed class UiTests
             };
             var reset = window.FindControl<Button>("ResetTimestampButton")!;
             Assert.Equal(grouped, reset.IsVisible);
-            foreach (var control in grouped ? controls.Append(reset) : controls)
+            Assert.DoesNotContain(reset, toolbar.GetVisualDescendants());
+            foreach (var control in controls)
             {
                 Assert.True(control.IsEffectivelyVisible);
                 Assert.True(control.Bounds.Width > 0);
@@ -105,7 +106,7 @@ public sealed class UiTests
                 Assert.True(toggle.IsEffectivelyVisible);
                 Assert.Contains("collapsed", toggle.Classes);
                 Assert.Equal(180, Assert.IsType<RotateTransform>(chevron.RenderTransform).Angle);
-                Assert.Equal("Показать фильтры и статистику", ToolTip.GetTip(toggle));
+                Assert.Equal("Показать панель вкладок", ToolTip.GetTip(toggle));
                 Assert.True(log.Bounds.Height > initialHeight + 200);
                 Assert.InRange(grid.RowDefinitions[3].ActualHeight, 0, grid.RowSpacing);
                 arrowPoint = toggle.TranslatePoint(new Point(toggle.Bounds.Width / 2, toggle.Bounds.Height / 2), window)!.Value;
@@ -117,7 +118,7 @@ public sealed class UiTests
                 Assert.True(divider.IsEnabled);
                 Assert.DoesNotContain("collapsed", toggle.Classes);
                 Assert.Null(chevron.RenderTransform);
-                Assert.Equal("Скрыть фильтры и статистику", ToolTip.GetTip(toggle));
+                Assert.Equal("Скрыть панель вкладок", ToolTip.GetTip(toggle));
                 Assert.Equal(savedHeight, grid.RowDefinitions[3].Height);
                 Assert.Equal(initialHeight, log.Bounds.Height, precision: 3);
                 Assert.Equal(1, tabs.SelectedIndex);
