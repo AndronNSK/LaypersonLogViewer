@@ -5,6 +5,17 @@ namespace LaypersonLogViewer.Tests;
 
 public sealed class LogSearchTests
 {
+    [Fact]
+    public void HighlightsCoverLiteralMatchesIncludingAdjacentAndOverlappingText()
+    {
+        Assert.Equal([(0, 3), (4, 2)], LogSearch.HighlightRanges("aaa aa", "aa", caseSensitive: true));
+        Assert.Equal([(1, 4)], LogSearch.HighlightRanges("b.*.*b", ".*", caseSensitive: true));
+        Assert.Equal([(0, 6), (7, 6)], LogSearch.HighlightRanges("Ошибка ошибка", "ошибка", caseSensitive: false));
+        Assert.Equal([(7, 6)], LogSearch.HighlightRanges("Ошибка ошибка", "ошибка", caseSensitive: true));
+        Assert.Empty(LogSearch.HighlightRanges("missing", "", caseSensitive: true));
+        Assert.Empty(LogSearch.HighlightRanges("missing", "needle", caseSensitive: true));
+    }
+
     private static LogSearchMatch? Find(IReadOnlyList<LogLine> lines, string text,
         bool caseSensitive = false, LogSearchMatch? current = null, bool backwards = false) =>
         LogSearch.Find(lines, text, caseSensitive, current, backwards, TestContext.Current.CancellationToken);
@@ -59,6 +70,30 @@ public sealed class LogSearchTests
     }
 
     [Fact]
+    public async Task SearchStartsAtClickedLineEvenIfQueryIsEnteredLaterAndWrapsFromThere()
+    {
+        using var search = new LogSearchViewModel();
+        var lines = StatisticsTests.Lines("x", "plain", "x", "plain");
+        search.SetLines(lines);
+        search.StartAt(lines[1]);
+        search.Text = "x";
+        var next = (await search.FindAsync())!;
+        Assert.Same(lines[2], next.Line);
+        Assert.False(next.Wrapped);
+
+        search.StartAt(lines[3]);
+        next = (await search.FindAsync())!;
+        Assert.Same(lines[0], next.Line);
+        Assert.True(next.Wrapped);
+
+        search.StartAt(lines[3]);
+        search.SetLines([lines[0], lines[2]]);
+        next = (await search.FindAsync())!;
+        Assert.Same(lines[0], next.Line);
+        Assert.False(next.Wrapped);
+    }
+
+    [Fact]
     public async Task ViewModelSearchUsesDisplayedScopeAndTracksLiveChanges()
     {
         var model = new MainWindowViewModel();
@@ -90,14 +125,16 @@ public sealed class LogSearchTests
     [InlineData("query")]
     [InlineData("source")]
     [InlineData("close")]
+    [InlineData("click")]
     public async Task SupersededSearchAndClosingCannotApplyStaleResults(string change)
     {
         using var search = new LogSearchViewModel();
         using var release = new ManualResetEventSlim();
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        search.SetLines(new PausingLines(StatisticsTests.Lines("old", "new"), () =>
+        var lines = StatisticsTests.Lines("old", "new old");
+        search.SetLines(new PausingLines(lines, () =>
         {
-            started.SetResult();
+            started.TrySetResult();
             Assert.True(release.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
         }));
         search.IsVisible = true;
@@ -108,13 +145,14 @@ public sealed class LogSearchTests
             await started.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
             if (change == "query") search.Text = "new";
             else if (change == "source") search.SetLines(StatisticsTests.Lines("new"));
+            else if (change == "click") search.StartAt(lines[1]);
             else search.IsVisible = false;
         }
         finally { release.Set(); }
         Assert.Null(await old);
         Assert.False(search.IsSearching);
         Assert.DoesNotContain("Поиск…", search.Status);
-        if (change == "query")
+        if (change is "query" or "click")
         {
             Assert.Equal(2, (await search.FindAsync())!.Line.Number);
             Assert.Equal("Строка 2", search.Status);

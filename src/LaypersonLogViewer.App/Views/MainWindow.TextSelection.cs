@@ -52,7 +52,9 @@ public partial class MainWindow
             || e.GetCurrentPoint(LogLines).Properties.PointerUpdateKind != PointerUpdateKind.LeftButtonPressed
             || e.Source is not Visual source) return;
         var ancestors = source.GetSelfAndVisualAncestors();
-        if (!ancestors.OfType<ListBoxItem>().Any()) return;
+        if (ancestors.OfType<ListBoxItem>().FirstOrDefault()?.DataContext is not LogLineRow row) return;
+        _searchNavigation++;
+        ViewModel.Search.StartAt(row.Line);
         ClearLogTextRange();
         var text = ancestors.OfType<TextBox>().FirstOrDefault();
         ActivateLogText(text);

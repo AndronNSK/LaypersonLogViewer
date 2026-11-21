@@ -118,14 +118,22 @@
             <DataTemplate x:DataType="vm:LogLineRow">
               <Border BorderBrush="#D9DFE8" BorderThickness="{Binding SeparatorThickness}">
               <Grid Name="LineContent" ColumnDefinitions="64,*" ColumnSpacing="8" Opacity="{Binding Opacity}">
-                <TextBlock Text="{Binding Number}" Foreground="#738297" TextAlignment="Right" LineHeight="16" />
-                <TextBox Grid.Column="1" Text="{Binding Text, Mode=OneWay}" LineHeight="16"
+                <Border Name="LogLineNumber" HorizontalAlignment="Right" VerticalAlignment="Top"
+                        Background="{Binding #RowSearchHighlight.NumberBackground}" CornerRadius="2">
+                  <TextBlock Text="{Binding Number}" Foreground="#526174" TextAlignment="Right" LineHeight="16" />
+                </Border>
+                <TextBox Name="LogRowText" Grid.Column="1" Text="{Binding Text, Mode=OneWay}" LineHeight="16"
                                      TextWrapping="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).LogTextWrapping}"
                                      IsReadOnly="True" ClearSelectionOnLostFocus="False"
                                      IsInactiveSelectionHighlightEnabled="True"
                                      Padding="0" BorderThickness="0" MinHeight="0"
                                      Background="Transparent" Cursor="Ibeam" ContextRequested="LogText_ContextRequested"
                                      GotFocus="LogText_GotFocus" DataContextChanged="LogText_DataContextChanged" />
+                <views:LogSearchHighlight Name="RowSearchHighlight" Grid.Column="1" IsHitTestVisible="False" ClipToBounds="True"
+                    Target="{Binding #LogRowText}" Row="{Binding}"
+                    Query="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).Search.HighlightText}"
+                    CaseSensitive="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).Search.CaseSensitive}"
+                    CurrentMatch="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).Search.CurrentMatch}" />
               </Grid>
               </Border>
             </DataTemplate>
