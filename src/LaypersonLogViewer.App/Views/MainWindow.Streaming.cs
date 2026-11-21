@@ -26,13 +26,12 @@ public partial class MainWindow
                     .FirstOrDefault(control => control.DataContext is LogLineRow && control is TextBox or ListBoxItem);
                 if (rowControl is null) return;
                 ViewModel.Live.FollowLatest = false;
-                ActivateLogText(rowControl as TextBox);
             }
         }, RoutingStrategies.Tunnel, handledEventsToo: true);
         LogLines.AddHandler(ScrollViewer.ScrollChangedEvent, (_, e) =>
         {
             // Ignore textbox scrolling and layout changes caused by incoming batches.
-            if (_streamRefreshing || _navigatingSearch || ViewModel.IsBusy || e.OffsetDelta.Y == 0
+            if (_streamRefreshing || _navigatingSearch || _logDragPointer is not null || ViewModel.IsBusy || e.OffsetDelta.Y == 0
                 || e.ExtentDelta.Y != 0 || e.ViewportDelta.Y != 0
                 || e.Source is not ScrollViewer scroll || !ReferenceEquals(scroll.TemplatedParent, LogLines)) return;
             ViewModel.Live.FollowLatest = AtLogBottom(scroll);
@@ -46,7 +45,7 @@ public partial class MainWindow
             {
                 var scroll = LogLines.GetVisualDescendants().OfType<ScrollViewer>()
                     .FirstOrDefault(s => ReferenceEquals(s.TemplatedParent, LogLines));
-                if (scroll is not null && AtLogBottom(scroll)) ViewModel.Live.FollowLatest = true;
+                if (_logDragPointer is null && scroll is not null && AtLogBottom(scroll)) ViewModel.Live.FollowLatest = true;
             }, DispatcherPriority.Background);
         }, RoutingStrategies.Tunnel, handledEventsToo: true);
         ViewModel.Live.PropertyChanged += (_, _) =>

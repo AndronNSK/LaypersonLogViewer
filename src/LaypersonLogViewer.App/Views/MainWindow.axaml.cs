@@ -27,6 +27,7 @@ public partial class MainWindow : Window
         DataContext = new MainWindowViewModel();
         UpdateMenuLayout();
         InitializeStreaming();
+        InitializeLogTextSelection();
         AddHandler(KeyDownEvent, Search_KeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, File_DragOver, RoutingStrategies.Bubble, handledEventsToo: true);
@@ -141,7 +142,7 @@ public partial class MainWindow : Window
     private async Task AddFilterAsync(FilterKind kind, string? initialText = null, LogFilter? parent = null)
     {
         if (ViewModel.IsBusy) return;
-        initialText ??= ActiveLogText?.SelectedText ?? "";
+        initialText ??= SingleLineSelection ?? "";
         var filter = await new FilterDialog(kind, initialText, addingCondition: parent is not null).ShowDialog<LogFilter?>(this);
         if (filter is null) return;
         await ApplyFilterAsync(filter, parent);
@@ -150,7 +151,7 @@ public partial class MainWindow : Window
     private async Task ApplyFilterAsync(LogFilter filter, LogFilter? parent = null)
     {
         if (ViewModel.IsBusy) return;
-        var active = ActiveLogText;
+        var active = _logTextRange is null ? ActiveLogText : null;
         var selectedRow = active?.DataContext as LogLineRow;
         var start = active?.SelectionStart ?? 0;
         var end = active?.SelectionEnd ?? 0;
@@ -178,10 +179,16 @@ public partial class MainWindow : Window
     {
         if (sender is not TextBox text) return;
         e.Handled = true;
-        ActivateLogText(text);
+        var inRange = text.DataContext is LogLineRow row && IsInLogTextRange(row);
+        if (!inRange)
+        {
+            ClearLogTextRange();
+            ActivateLogText(text);
+        }
+        else RefreshLogTextRange();
 
         // Keep the exact selection before opening a popup or dialog changes focus.
-        var selectedText = text.SelectedText;
+        var selectedText = inRange ? "" : text.SelectedText;
         var canAdd = !ViewModel.IsBusy && !string.IsNullOrWhiteSpace(selectedText);
         var include = new MenuItem { Header = "Показать строки", IsEnabled = canAdd };
         var exclude = new MenuItem { Header = "Скрыть строки", IsEnabled = canAdd };
@@ -190,10 +197,11 @@ public partial class MainWindow : Window
             && !selectedText.Contains('\r') && !selectedText.Contains('\n');
         var timestamp = new MenuItem { Header = "Начало записи по времени", IsEnabled = canSetTimestamp };
         var statistics = new MenuItem { Header = "Создать статистику…" };
+        var copy = new MenuItem { Header = "Копировать", IsEnabled = inRange || selectedText.Length > 0 };
         var example = text.Text ?? "";
         var menu = new ContextMenu
         {
-            ItemsSource = new[] { timestamp, include, exclude, statistics },
+            ItemsSource = new[] { timestamp, include, exclude, statistics, copy },
             Placement = e.TryGetPosition(text, out _) ? PlacementMode.Pointer : PlacementMode.Bottom
         };
         include.Click += async (_, _) =>
@@ -220,11 +228,19 @@ public partial class MainWindow : Window
             menu.Close();
             await EditStatisticsAsync(example: example);
         };
+        copy.Click += async (_, _) =>
+        {
+            menu.Close();
+            await CopyLogTextAsync(inRange ? GetLogTextRange() : selectedText);
+        };
         text.ContextMenu = menu;
         menu.Open(text);
     }
 
-    private void LogText_GotFocus(object? sender, RoutedEventArgs e) => ActivateLogText(sender as TextBox);
+    private void LogText_GotFocus(object? sender, RoutedEventArgs e)
+    {
+        if (_logTextRange is null) ActivateLogText(sender as TextBox);
+    }
 
     private void ActivateLogText(TextBox? text)
     {

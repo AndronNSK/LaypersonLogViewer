@@ -1,9 +1,11 @@
 using System.Text;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -15,6 +17,151 @@ namespace LaypersonLogViewer.Tests;
 
 public sealed class TextSelectionTests
 {
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public async Task DragCopiesOneRangeAcrossGroupedEntries(bool wordWrap, bool backwards)
+    {
+        var window = new MainWindow();
+        window.Show();
+        try
+        {
+            var model = (MainWindowViewModel)window.DataContext!;
+            model.WordWrap = wordWrap;
+            var continuation = "  " + new string('x', 190);
+            await Load(window, $"12:00:00 first entry\n{continuation}\n12:00:01 next entry\n  last line");
+            await model.SetTimestampPatternAsync(new TimestampPattern("12:00:00", 0));
+            window.UpdateLayout();
+            Assert.Equal(2, model.EntryCount);
+            var texts = RealizedTexts(window);
+            var from = AtCharacter(window, texts[0], 9);
+            var to = AtCharacter(window, texts[3], 6);
+            window.MouseMove(default);
+            window.MouseDown(backwards ? to : from, MouseButton.Left);
+            window.MouseMove(backwards ? from : to, RawInputModifiers.LeftMouseButton);
+            window.MouseUp(backwards ? from : to, MouseButton.Left);
+
+            Assert.Equal("first entry", texts[0].SelectedText);
+            Assert.Equal(continuation, texts[1].SelectedText);
+            Assert.Equal("12:00:01 next entry", texts[2].SelectedText);
+            Assert.Equal("  last", texts[3].SelectedText);
+            var expected = string.Join(Environment.NewLine, "first entry", continuation, "12:00:01 next entry", "  last");
+            if (backwards)
+            {
+                var inside = AtCharacter(window, texts[1], 5);
+                window.MouseMove(inside);
+                window.MouseDown(inside, MouseButton.Right);
+                window.MouseUp(inside, MouseButton.Right);
+                var menu = texts[1].ContextMenu!;
+                var copy = menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, "Копировать"));
+                Assert.True(copy.IsEnabled);
+                copy.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            }
+            else PressCopy(window);
+            Assert.Equal(expected, await window.Clipboard!.TryGetTextAsync());
+
+            var click = AtCharacter(window, texts[2], 16);
+            window.MouseMove(click);
+            window.MouseDown(click, MouseButton.Left);
+            window.MouseUp(click, MouseButton.Left);
+            Assert.All(texts, text => Assert.Empty(text.SelectedText));
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task DragPastViewportScrollsWhileSelectingText()
+    {
+        var window = new MainWindow();
+        window.Show();
+        try
+        {
+            await Load(window, string.Join('\n', Enumerable.Range(1, 200).Select(number => $"row {number}")));
+            var list = window.FindControl<ListBox>("LogLines")!;
+            var scroll = list.GetVisualDescendants().OfType<ScrollViewer>()
+                .Single(viewer => ReferenceEquals(viewer.TemplatedParent, list));
+            var texts = RealizedTexts(window);
+            var from = AtCharacter(window, texts[0], 0);
+            var next = AtCharacter(window, texts[1], 4);
+            var pastBottom = new Point(next.X, list.TranslatePoint(default, window)!.Value.Y + list.Bounds.Height + 2);
+            window.MouseMove(default);
+            window.MouseDown(from, MouseButton.Left);
+            window.MouseMove(next, RawInputModifiers.LeftMouseButton);
+            window.MouseMove(pastBottom, RawInputModifiers.LeftMouseButton);
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            while (scroll.Offset.Y < 64) await Task.Delay(10, timeout.Token);
+            window.MouseUp(pastBottom, MouseButton.Left);
+
+            Assert.True(scroll.Offset.Y >= 64);
+            Assert.False(((MainWindowViewModel)window.DataContext!).Live.FollowLatest);
+            PressCopy(window);
+            var copied = await window.Clipboard!.TryGetTextAsync();
+            Assert.StartsWith("row 1" + Environment.NewLine + "row 2" + Environment.NewLine, copied);
+            Assert.True(copied!.Split(Environment.NewLine).Length > 10);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task MultilineCopySurvivesStreamingAndVirtualizationAndSkipsHiddenLines()
+    {
+        var window = new MainWindow();
+        window.Show();
+        try
+        {
+            var model = (MainWindowViewModel)window.DataContext!;
+            var lines = Enumerable.Range(1, 200).Select(number => $"row {number}").ToArray();
+            lines[1] = "hidden";
+            await Load(window, string.Join('\n', lines));
+            await model.AddFilterAsync(new LogFilter(FilterKind.Exclude, "hidden"));
+            window.UpdateLayout();
+            var texts = RealizedTexts(window);
+            var list = window.FindControl<ListBox>("LogLines")!;
+            var scroll = list.GetVisualDescendants().OfType<ScrollViewer>()
+                .Single(viewer => ReferenceEquals(viewer.TemplatedParent, list));
+            var from = AtCharacter(window, texts[0], 4);
+            var next = AtCharacter(window, texts[1], 3);
+            window.MouseMove(default);
+            window.MouseDown(from, MouseButton.Left);
+            window.MouseMove(next, RawInputModifiers.LeftMouseButton);
+            await model.ApplyLiveLinesAsync("stream", [..model.AllLines, new(201, "new line")]);
+            scroll.Offset = new Vector(0, scroll.ScrollBarMaximum.Y);
+            window.UpdateLayout();
+            var bottomTexts = RealizedTexts(window);
+            Assert.DoesNotContain(bottomTexts, text => ((LogLineRow)text.DataContext!).Number == 1);
+            var to = AtCharacter(window, bottomTexts.Last(text => text.Text == "row 200"), 3);
+            window.MouseMove(to, RawInputModifiers.LeftMouseButton);
+            window.MouseUp(to, MouseButton.Left);
+
+            PressCopy(window);
+            var expected = string.Join(Environment.NewLine, lines.Skip(2).SkipLast(1).Prepend("1").Append("row"));
+            Assert.Equal(expected, await window.Clipboard!.TryGetTextAsync());
+            Assert.Equal("row", RealizedTexts(window).Single(text => text.Text == "row 200").SelectedText);
+            scroll.Offset = default;
+            window.UpdateLayout();
+            Assert.Equal("1", RealizedTexts(window)[0].SelectedText);
+        }
+        finally { window.Close(); }
+    }
+
+    private static TextBox[] RealizedTexts(MainWindow window) =>
+        window.FindControl<ListBox>("LogLines")!.GetVisualDescendants().OfType<TextBox>()
+            .Where(text => text.DataContext is LogLineRow)
+            .OrderBy(text => ((LogLineRow)text.DataContext!).Number).ToArray();
+
+    private static Point AtCharacter(MainWindow window, TextBox text, int index)
+    {
+        var presenter = text.GetVisualDescendants().OfType<TextPresenter>().Single();
+        var caret = presenter.TextLayout.HitTestTextPosition(index);
+        return presenter.TranslatePoint(new Point(caret.X + 1, caret.Center.Y), window)!.Value;
+    }
+
+    private static void PressCopy(MainWindow window)
+    {
+        window.KeyPress(Key.C, RawInputModifiers.Control, PhysicalKey.C, null);
+        window.KeyRelease(Key.C, RawInputModifiers.Control, PhysicalKey.C, null);
+    }
+
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]

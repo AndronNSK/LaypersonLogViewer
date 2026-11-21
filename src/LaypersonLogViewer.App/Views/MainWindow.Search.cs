@@ -21,7 +21,7 @@ public partial class MainWindow
 
     private void OpenSearch()
     {
-        var selection = ActiveLogText?.SelectedText;
+        var selection = SingleLineSelection;
         if (!string.IsNullOrEmpty(selection)) ViewModel.Search.Text = selection;
         ViewModel.Search.IsVisible = true;
         SearchTextBox.Focus();
@@ -76,6 +76,7 @@ public partial class MainWindow
                 if (LogLines.ContainerFromIndex(index) is not { } container) return;
                 var text = container.GetVisualDescendants().OfType<TextBox>().FirstOrDefault();
                 if (text is null) return;
+                ClearLogTextRange();
                 ActivateLogText(text);
                 text.CaretIndex = match.Start + match.Length;
                 text.SelectionStart = match.Start;
