@@ -20,10 +20,13 @@ public partial class MainWindow
     {
         LogLines.AddHandler(PointerPressedEvent, (_, e) =>
         {
-            if (e.Source is Visual source && source.GetSelfAndVisualAncestors()
-                .OfType<Control>().Any(control => control.DataContext is LogLineRow))
+            if (e.Source is Visual source)
             {
+                var rowControl = source.GetSelfAndVisualAncestors().OfType<Control>()
+                    .FirstOrDefault(control => control.DataContext is LogLineRow && control is TextBox or ListBoxItem);
+                if (rowControl is null) return;
                 ViewModel.Live.FollowLatest = false;
+                ActivateLogText(rowControl as TextBox);
             }
         }, RoutingStrategies.Tunnel, handledEventsToo: true);
         LogLines.AddHandler(ScrollViewer.ScrollChangedEvent, (_, e) =>

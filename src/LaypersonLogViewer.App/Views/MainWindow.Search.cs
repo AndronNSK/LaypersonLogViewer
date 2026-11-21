@@ -21,7 +21,7 @@ public partial class MainWindow
 
     private void OpenSearch()
     {
-        var selection = _activeLogText?.SelectedText;
+        var selection = ActiveLogText?.SelectedText;
         if (!string.IsNullOrEmpty(selection)) ViewModel.Search.Text = selection;
         ViewModel.Search.IsVisible = true;
         SearchTextBox.Focus();
@@ -32,7 +32,7 @@ public partial class MainWindow
     {
         _searchNavigation++;
         ViewModel.Search.IsVisible = false;
-        if (_activeLogText?.IsAttachedToVisualTree() == true) _activeLogText.Focus();
+        ActiveLogText?.Focus();
     }
 
     private async void Search_KeyDown(object? sender, KeyEventArgs e)
@@ -76,9 +76,7 @@ public partial class MainWindow
                 if (LogLines.ContainerFromIndex(index) is not { } container) return;
                 var text = container.GetVisualDescendants().OfType<TextBox>().FirstOrDefault();
                 if (text is null) return;
-                foreach (var other in LogLines.GetVisualDescendants().OfType<TextBox>())
-                    if (!ReferenceEquals(other, text)) other.ClearSelection();
-                _activeLogText = text;
+                ActivateLogText(text);
                 text.CaretIndex = match.Start + match.Length;
                 text.SelectionStart = match.Start;
                 text.SelectionEnd = match.Start + match.Length;

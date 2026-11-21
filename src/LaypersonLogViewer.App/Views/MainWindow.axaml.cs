@@ -13,6 +13,7 @@ namespace LaypersonLogViewer.App.Views;
 public partial class MainWindow : Window
 {
     private TextBox? _activeLogText;
+    private long _logTextActivation;
     private bool _openingFile;
     private GridLength _lowerPaneHeight = new(210);
     private readonly CommandHistory _commandHistory;
@@ -34,6 +35,7 @@ public partial class MainWindow : Window
     }
 
     private MainWindowViewModel ViewModel => (MainWindowViewModel)DataContext!;
+    private TextBox? ActiveLogText => _activeLogText?.IsAttachedToVisualTree() == true ? _activeLogText : null;
 
     private void LowerPaneToggle_Click(object? sender, RoutedEventArgs e) => SetLowerPaneVisible(!LowerPane.IsVisible);
 
@@ -139,9 +141,7 @@ public partial class MainWindow : Window
     private async Task AddFilterAsync(FilterKind kind, string? initialText = null, LogFilter? parent = null)
     {
         if (ViewModel.IsBusy) return;
-        initialText ??= LogLines.GetVisualDescendants().OfType<TextBox>()
-            .OrderByDescending(text => ReferenceEquals(text, _activeLogText))
-            .FirstOrDefault(text => text.SelectionStart != text.SelectionEnd)?.SelectedText ?? "";
+        initialText ??= ActiveLogText?.SelectedText ?? "";
         var filter = await new FilterDialog(kind, initialText, addingCondition: parent is not null).ShowDialog<LogFilter?>(this);
         if (filter is null) return;
         await ApplyFilterAsync(filter, parent);
@@ -150,23 +150,27 @@ public partial class MainWindow : Window
     private async Task ApplyFilterAsync(LogFilter filter, LogFilter? parent = null)
     {
         if (ViewModel.IsBusy) return;
-        // TextBox keeps selection across focus changes; only the row rebuild needs help.
-        var selections = new Dictionary<LogLine, (int Start, int End)>(ReferenceEqualityComparer.Instance);
-        foreach (var text in LogLines.GetVisualDescendants().OfType<TextBox>())
-            if (text.DataContext is LogLineRow row && text.SelectionStart != text.SelectionEnd)
-                selections[row.Line] = (text.SelectionStart, text.SelectionEnd);
+        var active = ActiveLogText;
+        var selectedRow = active?.DataContext as LogLineRow;
+        var start = active?.SelectionStart ?? 0;
+        var end = active?.SelectionEnd ?? 0;
+        var activation = _logTextActivation;
 
         if (parent is null) await ViewModel.AddFilterAsync(filter);
         else await ViewModel.AddConditionAsync(parent, filter.Condition);
+        if (selectedRow is null || start == end) return;
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
             LogLines.UpdateLayout();
-            foreach (var text in LogLines.GetVisualDescendants().OfType<TextBox>())
-                if (text.DataContext is LogLineRow row && selections.TryGetValue(row.Line, out var selection))
-                {
-                    text.SelectionStart = selection.Start;
-                    text.SelectionEnd = selection.End;
-                }
+            // Restore the range only if layout recycled its text box and the user
+            // has not moved to another log line in the meantime.
+            if (activation != _logTextActivation || ActiveLogText is not null) return;
+            var text = LogLines.GetVisualDescendants().OfType<TextBox>()
+                .FirstOrDefault(box => ReferenceEquals(box.DataContext, selectedRow));
+            if (text is null) return;
+            ActivateLogText(text);
+            text.SelectionStart = start;
+            text.SelectionEnd = end;
         }, DispatcherPriority.Loaded);
     }
 
@@ -174,6 +178,7 @@ public partial class MainWindow : Window
     {
         if (sender is not TextBox text) return;
         e.Handled = true;
+        ActivateLogText(text);
 
         // Keep the exact selection before opening a popup or dialog changes focus.
         var selectedText = text.SelectedText;
@@ -219,11 +224,28 @@ public partial class MainWindow : Window
         menu.Open(text);
     }
 
-    private void LogText_GotFocus(object? sender, RoutedEventArgs e) => _activeLogText = sender as TextBox;
+    private void LogText_GotFocus(object? sender, RoutedEventArgs e) => ActivateLogText(sender as TextBox);
+
+    private void ActivateLogText(TextBox? text)
+    {
+        if (ReferenceEquals(_activeLogText, text)) return;
+        if (_activeLogText is { } previous) ClearLogTextSelection(previous);
+        _activeLogText = text;
+        _logTextActivation++;
+    }
+
+    private static void ClearLogTextSelection(TextBox text)
+    {
+        if (text.SelectionStart == text.SelectionEnd) return;
+        // Moving the old caret can scroll the log away from the line being clicked.
+        var caret = text.CaretIndex;
+        text.SelectionStart = caret;
+        text.SelectionEnd = caret;
+    }
 
     public async Task EditStatisticsAsync(StatisticsPattern? pattern = null, string? example = null)
     {
-        example ??= _activeLogText?.DataContext is LogLineRow row ? row.Text : "";
+        example ??= ActiveLogText?.DataContext is LogLineRow row ? row.Text : "";
         var dialog = new StatisticsPatternDialog(example, ViewModel.Statistics.SourceLines, pattern);
         var accepted = await dialog.ShowDialog<StatisticsPattern?>(this);
         if (accepted is null) return;
@@ -234,7 +256,9 @@ public partial class MainWindow : Window
     private void LogText_DataContextChanged(object? sender, EventArgs e)
     {
         // Virtualized rows can be reused for another line after scrolling or filtering.
-        if (sender is TextBox text) text.ClearSelection();
+        if (sender is not TextBox text) return;
+        ClearLogTextSelection(text);
+        if (ReferenceEquals(_activeLogText, text)) _activeLogText = null;
     }
 
     private async void Remove_Click(object? sender, RoutedEventArgs e)

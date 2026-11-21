@@ -15,6 +15,50 @@ namespace LaypersonLogViewer.Tests;
 
 public sealed class TextSelectionTests
 {
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SelectingAnotherLogLineClearsThePreviousHighlight(bool wordWrap)
+    {
+        var window = new MainWindow();
+        window.Show();
+        try
+        {
+            var model = (MainWindowViewModel)window.DataContext!;
+            model.WordWrap = wordWrap;
+            await Load(window, "first row has selectable text\nsecond row has selectable text\nthird row has selectable text");
+            var list = window.FindControl<ListBox>("LogLines")!;
+            var texts = list.GetVisualDescendants().OfType<TextBox>()
+                .OrderBy(text => ((LogLineRow)text.DataContext!).Number).ToArray();
+            window.MouseMove(default);
+
+            void DragAcross(TextBox text)
+            {
+                var start = text.TranslatePoint(new Point(6, 5), window)!.Value;
+                var end = start + new Vector(95, 0);
+                window.MouseDown(start, MouseButton.Left);
+                window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+                window.MouseUp(end, MouseButton.Left);
+            }
+
+            DragAcross(texts[0]);
+            var firstSelection = texts[0].SelectedText;
+            Assert.NotEmpty(firstSelection);
+            Assert.True(window.FindControl<Button>("SearchButton")!.Focus());
+            Assert.Equal(firstSelection, texts[0].SelectedText);
+
+            DragAcross(texts[1]);
+            Assert.NotEmpty(texts[1].SelectedText);
+            Assert.Empty(texts[0].SelectedText);
+
+            var third = texts[2].TranslatePoint(new Point(6, 5), window)!.Value;
+            window.MouseDown(third, MouseButton.Left);
+            window.MouseUp(third, MouseButton.Left);
+            Assert.All(texts, text => Assert.Empty(text.SelectedText));
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public async Task WordWrapFitsLongLinesAndPreservesSelectionDuringStreaming()
     {
