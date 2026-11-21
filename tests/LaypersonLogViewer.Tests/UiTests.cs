@@ -36,6 +36,7 @@ public sealed class UiTests
         try
         {
             var model = (MainWindowViewModel)window.DataContext!;
+            await model.ApplyLiveLinesAsync(new string('a', 240) + ".log", []);
             if (grouped) await model.SetTimestampPatternAsync(new TimestampPattern("2026-10-11", 0));
             window.UpdateLayout();
             var toolbar = window.FindControl<Grid>("MainToolbar")!;
@@ -43,9 +44,12 @@ public sealed class UiTests
             var controls = new Control[]
             {
                 window.FindControl<Button>("OpenFileButton")!,
+                window.FindControl<Button>("StartCommandButton")!,
+                window.FindControl<Button>("SearchButton")!,
+                window.FindControl<CheckBox>("PauseStreamBox")!,
+                window.FindControl<CheckBox>("FollowLatestBox")!,
                 window.FindControl<CheckBox>("WordWrapBox")!,
-                window.FindControl<ToggleSwitch>("ShowFilteredOutSwitch")!,
-                window.FindControl<NumericUpDown>("RetainedLinesBox")!
+                window.FindControl<ToggleSwitch>("ShowFilteredOutSwitch")!
             };
             var reset = window.FindControl<Button>("ResetTimestampButton")!;
             Assert.Equal(grouped, reset.IsVisible);
@@ -58,6 +62,26 @@ public sealed class UiTests
                 Assert.InRange(position.X, 0, window.Bounds.Width - control.Bounds.Width);
                 Assert.InRange(position.Y, 0, toolbarBottom - control.Bounds.Height);
             }
+            Rect BoundsInWindow(string name)
+            {
+                var control = window.FindControl<Control>(name)!;
+                return new Rect(control.TranslatePoint(default, window)!.Value, control.Bounds.Size);
+            }
+            var open = BoundsInWindow("OpenFileButton");
+            var command = BoundsInWindow("StartCommandButton");
+            var source = BoundsInWindow("SourceName");
+            var search = BoundsInWindow("SearchButton");
+            var pause = BoundsInWindow("PauseStreamBox");
+            var follow = BoundsInWindow("FollowLatestBox");
+            var wrap = BoundsInWindow("WordWrapBox");
+            Assert.Equal(open.Y, command.Y);
+            Assert.InRange(command.Left - open.Right, 0, 8);
+            Assert.Equal(open.Y, search.Y);
+            Assert.True(command.Right < source.Left && source.Right < search.Left);
+            Assert.True(pause.Top >= open.Bottom);
+            Assert.Equal(pause.Y, follow.Y);
+            Assert.InRange(follow.Left - pause.Right, 0, 8);
+            Assert.True(wrap.Left > follow.Right);
             if (width == 1120) Assert.InRange(toolbar.Bounds.Height, 0, 100);
             var log = window.FindControl<ListBox>("LogLines")!;
             Assert.InRange(log.TranslatePoint(default, window)!.Value.Y - toolbarBottom, 0, 10);

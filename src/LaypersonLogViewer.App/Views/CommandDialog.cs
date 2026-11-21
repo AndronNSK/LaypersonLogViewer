@@ -51,7 +51,7 @@ public sealed class CommandDialog : Window
                 new TextBlock { Text = "Программа" }, executable,
                 new TextBlock { Text = "Аргументы" }, arguments,
                 new TextBlock { Text = "Рабочая папка" }, directory,
-                new TextBlock { Text = "Вывод и ошибки: UTF-8. Ввод не поддерживается. «Стоп» завершает запущенный процесс.", TextWrapping = Avalonia.Media.TextWrapping.Wrap },
+                new TextBlock { Text = "Вывод и ошибки: UTF-8. Ввод не поддерживается. «Файл» → «Стоп» завершает запущенный процесс.", TextWrapping = Avalonia.Media.TextWrapping.Wrap },
                 new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right,
                     Spacing = 6, Children = { run, cancel } }
             }

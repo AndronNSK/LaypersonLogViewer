@@ -24,6 +24,7 @@ public partial class MainWindow : Window
         _commandHistory = commandHistory;
         InitializeComponent();
         DataContext = new MainWindowViewModel();
+        UpdateMenuLayout();
         InitializeStreaming();
         AddHandler(KeyDownEvent, Search_KeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
         DragDrop.SetAllowDrop(this, true);

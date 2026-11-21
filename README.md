@@ -49,7 +49,7 @@ my-command 2>&1 | layperson-log-viewer --stdin
   The last 20 confirmed commands are kept, newest first; repeats move to the top and cancellation
   changes nothing. History is saved to `command-history.json` in the application's local data folder
   (`%LOCALAPPDATA%\LaypersonLogViewer` on Windows). Loading or saving errors are shown without blocking launch.
-- **Стоп** stops capture; for a command started by the viewer it terminates that process and
+- **Файл → Стоп** stops capture; for a command started by the viewer it terminates that process and
   its descendants. Closing the window or replacing the source also stops that command.
   Piped producers are external processes and are not terminated by the viewer.
 - **Прокрутка** follows the newest displayed lines without changing horizontal scroll.
@@ -57,11 +57,12 @@ my-command 2>&1 | layperson-log-viewer --stdin
   the checkbox also lets you resume manually.
 - **Пауза показа** freezes displayed lines and their statistics, while capture continues.
   Resuming displays the current retained data.
-- **Лимит строк** defaults to 5,000,000 (100–20,000,000). Oldest received lines are discarded;
+- **Файл → Лимит строк…** opens a dialog to set how many lines to keep. The default is 5,000,000
+  (100–20,000,000). Oldest received lines are discarded;
   original receipt numbers remain. This limit applies to opened files and all other streaming sources.
   Evicting part of a multiline entry can leave its beginning outside the retained data.
-- **Сохранить журнал…** saves a UTF-8 snapshot of all retained lines, including excluded
-  lines and arrivals during pause. The snapshot is taken when the button is pressed.
+- **Файл → Сохранить журнал…** saves a UTF-8 snapshot of all retained lines, including excluded
+  lines and arrivals during pause. The snapshot is taken when the command is selected.
 
 The UI processes snapshots approximately every 500 ms, when no other operation or editor
 is active. Streaming status and received/retained line counters appear at the bottom of the window.

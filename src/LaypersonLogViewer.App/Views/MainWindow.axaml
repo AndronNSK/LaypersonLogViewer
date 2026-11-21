@@ -3,10 +3,22 @@
         xmlns:vm="using:LaypersonLogViewer.App.ViewModels"
         xmlns:core="using:LaypersonLogViewer.Core"
         xmlns:views="using:LaypersonLogViewer.App.Views"
+        xmlns:chrome="using:Avalonia.Controls.Chrome"
         x:Class="LaypersonLogViewer.App.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="Layperson · Просмотр журналов" Width="1120" Height="780"
-        MinWidth="760" MinHeight="560" Background="#F3F5F8">
+        MinWidth="760" MinHeight="560" Background="#F3F5F8"
+        ExtendClientAreaToDecorationsHint="True" ExtendClientAreaTitleBarHeightHint="30">
+  <Window.WindowDecorationsTheme>
+    <ControlTheme TargetType="chrome:WindowDrawnDecorations"
+                  BasedOn="{StaticResource {x:Type chrome:WindowDrawnDecorations}}">
+      <!-- The title's template sets its own margin, so this override needs a style trigger. -->
+      <Style Selector="^:has-titlebar /template/ Panel#PART_TitleTextPanel > TextBlock">
+        <Setter Property="Margin" Value="44,0,144,0" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+      </Style>
+    </ControlTheme>
+  </Window.WindowDecorationsTheme>
   <Window.Styles>
     <Style Selector="Button.panel-grip">
       <Setter Property="Background" Value="#F3F5F8" />
@@ -23,6 +35,8 @@
       <Setter Property="RenderTransform"><RotateTransform Angle="180" /></Setter>
     </Style>
   </Window.Styles>
+  <Panel>
+  <Border Name="MainContent">
   <Grid Name="MainLayout" Margin="8" RowSpacing="4">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
@@ -31,38 +45,42 @@
       <RowDefinition Height="210" MinHeight="150" />
       <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
-    <Grid Name="MainToolbar" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="2">
-      <TextBlock Text="{Binding FileName}" ToolTip.Tip="{Binding FileName}"
-                 Foreground="#526174" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-        <Button Name="OpenFileButton" Content="Открыть файл…" Click="OpenFile_Click"
-                IsEnabled="{Binding !IsBusy}" VerticalAlignment="Center"
-                ToolTip.Tip="Открыть файл журнала и следить за новыми строками" />
-        <CheckBox Name="WordWrapBox" Content="Перенос строк"
-                  IsChecked="{Binding WordWrap, Mode=TwoWay}" VerticalAlignment="Center"
-                  ToolTip.Tip="Переносить длинные строки по ширине окна" />
-        <ToggleSwitch Name="ShowFilteredOutSwitch" VerticalAlignment="Center"
-                      IsChecked="{Binding ShowFilteredOut, Mode=TwoWay}"
-                      OffContent="Скрывать отфильтрованные" OnContent="Отфильтрованные — серым"
-                      ToolTip.Tip="Показывать отфильтрованные строки серым, сохраняя контекст">
-          <ToggleSwitch.Resources>
-            <GridLength x:Key="ToggleSwitchPreContentMargin">1</GridLength>
-            <GridLength x:Key="ToggleSwitchPostContentMargin">1</GridLength>
-          </ToggleSwitch.Resources>
-        </ToggleSwitch>
-      </StackPanel>
-      <WrapPanel Name="SourceToolbar" Grid.Row="1" Grid.ColumnSpan="2">
-        <Button Name="StartCommandButton" Content="Запустить команду…" Click="StartCommand_Click" IsEnabled="{Binding !IsBusy}" Margin="0,0,4,0" />
-        <Button Name="StopStreamButton" Content="Стоп" Click="StopStream_Click" IsEnabled="{Binding Live.IsActive}" Margin="0,0,4,0" />
-        <Button Name="SaveLogButton" Content="Сохранить журнал…" Click="SaveLog_Click" Margin="0,0,8,0" />
-        <Button Name="SearchButton" Content="Найти…" Click="Search_Click" Margin="0,0,8,0" ToolTip.Tip="Поиск в показанных строках (Ctrl+F)" />
-        <CheckBox Name="PauseStreamBox" Content="Пауза показа" IsChecked="{Binding Live.IsPaused}" IsEnabled="{Binding Live.HasSession}" Margin="0,0,8,0" />
-        <CheckBox Name="FollowLatestBox" Content="Прокрутка" IsChecked="{Binding Live.FollowLatest}" Margin="0,0,8,0"
-                  ToolTip.Tip="Следовать за новыми строками. Нажатие на строку отключает прокрутку; прокрутка до конца включает её." />
-        <TextBlock Text="Лимит строк:" VerticalAlignment="Center" Margin="0,0,4,0" />
-        <NumericUpDown Name="RetainedLinesBox" Value="{Binding Live.RetainedLines}" Minimum="100" Maximum="20000000" Increment="1000" ShowButtonSpinner="False"
-                       Width="64" Padding="2,0" FormatString="0" ToolTip.Tip="Лимит для потоковых источников; старые строки удаляются. Статистика — по строкам в памяти." />
-      </WrapPanel>
+    <Grid Name="MainToolbar" RowDefinitions="Auto,Auto" RowSpacing="2">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+        <WrapPanel Name="SourceToolbar" VerticalAlignment="Center">
+          <Button Name="OpenFileButton" Content="Открыть файл…" Click="OpenFile_Click"
+                  IsEnabled="{Binding !IsBusy}" Margin="0,0,4,0"
+                  ToolTip.Tip="Открыть файл журнала и следить за новыми строками" />
+          <Button Name="StartCommandButton" Content="Запустить команду…" Click="StartCommand_Click"
+                  IsEnabled="{Binding !IsBusy}" />
+        </WrapPanel>
+        <TextBlock Grid.Column="1" Name="SourceName" Text="{Binding FileName}" ToolTip.Tip="{Binding FileName}"
+                   Foreground="#526174" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+        <Button Grid.Column="2" Name="SearchButton" Content="Найти…" Click="Search_Click"
+                ToolTip.Tip="Поиск в показанных строках (Ctrl+F)" />
+      </Grid>
+      <Grid Grid.Row="1" ColumnDefinitions="Auto,*" ColumnSpacing="12">
+        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <CheckBox Name="PauseStreamBox" Content="Пауза показа" IsChecked="{Binding Live.IsPaused}"
+                    IsEnabled="{Binding Live.HasSession}" />
+          <CheckBox Name="FollowLatestBox" Content="Прокрутка" IsChecked="{Binding Live.FollowLatest}"
+                    ToolTip.Tip="Следовать за новыми строками. Нажатие на строку отключает прокрутку; прокрутка до конца включает её." />
+        </StackPanel>
+        <WrapPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
+          <CheckBox Name="WordWrapBox" Content="Перенос строк" Margin="0,0,8,0"
+                    IsChecked="{Binding WordWrap, Mode=TwoWay}" VerticalAlignment="Center"
+                    ToolTip.Tip="Переносить длинные строки по ширине окна" />
+          <ToggleSwitch Name="ShowFilteredOutSwitch" VerticalAlignment="Center"
+                        IsChecked="{Binding ShowFilteredOut, Mode=TwoWay}"
+                        OffContent="Скрывать отфильтрованные" OnContent="Отфильтрованные — серым"
+                        ToolTip.Tip="Показывать отфильтрованные строки серым, сохраняя контекст">
+            <ToggleSwitch.Resources>
+              <GridLength x:Key="ToggleSwitchPreContentMargin">1</GridLength>
+              <GridLength x:Key="ToggleSwitchPostContentMargin">1</GridLength>
+            </ToggleSwitch.Resources>
+          </ToggleSwitch>
+        </WrapPanel>
+      </Grid>
     </Grid>
 
     <Border Grid.Row="1" Background="White" BorderBrush="#D9DFE8" BorderThickness="1" CornerRadius="4" ClipToBounds="True">
@@ -270,4 +288,40 @@
       <TextBlock Text="{Binding Error}" IsVisible="{Binding HasError}" Foreground="#B42318" TextWrapping="Wrap" />
     </StackPanel>
   </Grid>
+  </Border>
+    <Button Name="MainMenuButton" Width="30" Height="24" Padding="0" Background="Transparent"
+            HorizontalAlignment="Left" VerticalAlignment="Top" HorizontalContentAlignment="Center"
+            VerticalContentAlignment="Center" ToolTip.Tip="Главное меню"
+            AutomationProperties.Name="Главное меню" WindowDecorationProperties.ElementRole="User">
+      <Path Data="M 1,1 L 15,1 M 1,6 L 15,6 M 1,11 L 15,11"
+            Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+            StrokeThickness="1.5" />
+      <Button.Flyout>
+        <MenuFlyout Placement="BottomEdgeAlignedLeft">
+          <MenuItem Header="_Файл">
+            <MenuItem Header="Открыть файл…" Click="OpenFile_Click" IsEnabled="{Binding !IsBusy}" />
+            <MenuItem Header="Запустить команду…" Click="StartCommand_Click" IsEnabled="{Binding !IsBusy}" />
+            <MenuItem Header="Стоп" Click="StopStream_Click" IsEnabled="{Binding Live.IsActive}" />
+            <MenuItem Header="Сохранить журнал…" Click="SaveLog_Click" />
+            <MenuItem Header="Лимит строк…" Click="LineLimitMenu_Click" />
+            <Separator />
+            <MenuItem Header="Выход" Click="ExitMenu_Click" />
+          </MenuItem>
+          <MenuItem Header="_Вид">
+            <MenuItem Header="Найти…" InputGesture="Ctrl+F" Click="Search_Click" />
+            <Separator />
+            <MenuItem Header="Перенос строк" ToggleType="CheckBox" IsChecked="{Binding WordWrap, Mode=TwoWay}" />
+            <MenuItem Header="Показывать отфильтрованные серым" ToggleType="CheckBox"
+                      IsChecked="{Binding ShowFilteredOut, Mode=TwoWay}" />
+            <MenuItem Header="Панель вкладок" ToggleType="CheckBox" IsChecked="{Binding #LowerPane.IsVisible, Mode=OneWay}"
+                      Click="LowerPaneToggle_Click" />
+          </MenuItem>
+          <MenuItem Header="_Справка">
+            <MenuItem Header="Горячие клавиши" Click="KeyboardShortcutsMenu_Click" />
+            <MenuItem Header="О программе" Click="AboutMenu_Click" />
+          </MenuItem>
+        </MenuFlyout>
+      </Button.Flyout>
+    </Button>
+  </Panel>
 </Window>

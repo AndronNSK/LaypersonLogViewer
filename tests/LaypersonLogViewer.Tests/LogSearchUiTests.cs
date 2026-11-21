@@ -150,17 +150,12 @@ public sealed class LogSearchUiTests
     [AvaloniaTheory]
     [InlineData(760)]
     [InlineData(1120)]
-    public void SearchBarAndLargeLineLimitFitWindow(double width)
+    public void SearchBarFitsWindow(double width)
     {
         var window = new MainWindow { Width = width };
         window.Show();
         try
         {
-            var limit = window.FindControl<NumericUpDown>("RetainedLinesBox")!;
-            Assert.Equal(5_000_000, limit.Value);
-            Assert.Equal(20_000_000, limit.Maximum);
-            limit.Value = 20_000_000;
-            Assert.Equal(20_000_000, ((MainWindowViewModel)window.DataContext!).Live.RetainedLines);
             Click(window, "SearchButton");
             window.UpdateLayout();
             foreach (var name in new[] { "SearchTextBox", "SearchCaseBox", "SearchPreviousButton", "SearchNextButton", "SearchStatus", "CloseSearchButton" })

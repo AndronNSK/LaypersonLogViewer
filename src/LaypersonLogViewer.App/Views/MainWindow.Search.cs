@@ -37,7 +37,7 @@ public partial class MainWindow
 
     private async void Search_KeyDown(object? sender, KeyEventArgs e)
     {
-        if (OwnedWindows.Count > 0) return;
+        if (OwnedWindows.Count > 0 || MainMenuButton.Flyout is { IsOpen: true }) return;
         if (e.Key == Key.F && e.KeyModifiers == KeyModifiers.Control)
         { e.Handled = true; OpenSearch(); }
         else if ((e.Key == Key.F3 && (e.KeyModifiers & ~KeyModifiers.Shift) == 0)
