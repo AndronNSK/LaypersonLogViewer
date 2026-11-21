@@ -366,6 +366,36 @@ public sealed class TextSelectionTests
         finally { window.Close(); }
     }
 
+    [AvaloniaFact]
+    public async Task BulkFilterKeepsSelectedTextOnASurvivingScrolledLine()
+    {
+        var window = new MainWindow();
+        window.Show();
+        try
+        {
+            await Load(window, string.Join('\n', Enumerable.Range(1, 512)
+                .Select(number => number % 2 == 0 ? $"ERROR {number}" : $"INFO {number}")));
+            var model = (MainWindowViewModel)window.DataContext!;
+            var list = window.FindControl<ListBox>("LogLines")!;
+            list.ScrollIntoView(399);
+            window.UpdateLayout();
+            var text = RealizedTexts(window).Single(box => box.Text == "ERROR 400");
+            text.Focus();
+            text.SelectionStart = 0;
+            text.SelectionEnd = 5;
+            var menu = OpenMenu(window, text);
+            menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, "Показать строки"))
+                .RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            while (model.Filters.Count == 0 || model.IsBusy) await Task.Delay(10, timeout.Token);
+            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+            Assert.Equal(256, model.DisplayLines.Count);
+            Assert.Equal("ERROR", RealizedTexts(window).Single(box => box.Text == "ERROR 400").SelectedText);
+        }
+        finally { window.Close(); }
+    }
+
     private static async Task Load(MainWindow window, string content)
     {
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content));

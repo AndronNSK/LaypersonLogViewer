@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using LaypersonLogViewer.Core;
 
 namespace LaypersonLogViewer.App.Views;
 
@@ -26,12 +27,16 @@ public partial class MainWindow
 
     private void ExitMenu_Click(object? sender, RoutedEventArgs e) => Close();
 
-    private async void LineLimitMenu_Click(object? sender, RoutedEventArgs e)
+    private async void SettingsMenu_Click(object? sender, RoutedEventArgs e)
     {
-        var live = ViewModel.Live;
-        if (await new LineLimitDialog(live.RetainedLines).ShowDialog<int?>(this) is { } limit
-            && limit != live.RetainedLines)
-            live.RetainedLines = limit;
+        var settings = _settings with { LineLimit = ViewModel.Live.RetainedLines };
+        if (await new SettingsDialog(settings, () => _ = CheckUpdatesAsync(true)).ShowDialog<AppSettings?>(this) is not { } accepted)
+            return;
+        _settings = accepted;
+        ViewModel.Live.RetainedLines = accepted.LineLimit;
+        try { if (_settingsStore is not null) await _settingsStore.SaveAsync(accepted); }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        { ViewModel.ReportError("Не удалось сохранить настройки. " + error.Message); }
     }
 
     private async void KeyboardShortcutsMenu_Click(object? sender, RoutedEventArgs e) =>

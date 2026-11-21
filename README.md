@@ -21,6 +21,21 @@ Open `samples/example.log` using **Открыть файл…**, or drop one fil
 main window. Folders and multiple-file drops are ignored. Existing filters and statistics
 patterns apply to the newly opened file. Local files are read from the beginning and followed automatically.
 
+## Settings, updates and JSON display
+
+Open **Файл → Настройки…** to change the retained-line limit or **Проверять обновления**.
+Settings are saved in the local application-data folder under `LaypersonLogViewer/settings.json`.
+Update checks run at startup and daily when enabled. **Проверить сейчас** runs a manual check.
+Only newer published stable GitHub releases are offered. The app asks before downloading,
+verifies the SHA-256 checksum, and asks before opening the downloaded installer.
+Windows x64 uses the MSI package. Linux x64 uses the Ubuntu 22.04 Debian package.
+
+Enable **Вид → Форматировать JSON** to expand valid single-line JSON objects and arrays with
+two-space indentation, including JSON after a timestamp/severity prefix.
+Open `samples/json-formatting.log` to try nested objects, arrays, Unicode and escaped strings.
+Copy uses the displayed text. Filtering, statistics, saved logs and source line numbers use
+the original physical lines. Formatting is computed on demand for displayed rows.
+
 ## Streaming (0.2.0)
 
 Pipe a command's UTF-8 output into the app using `--stdin`:
@@ -57,7 +72,7 @@ my-command 2>&1 | layperson-log-viewer --stdin
   the checkbox also lets you resume manually.
 - **Пауза показа** freezes displayed lines and their statistics, while capture continues.
   Resuming displays the current retained data.
-- **Файл → Лимит строк…** opens a dialog to set how many lines to keep. The default is 5,000,000
+- **Файл → Настройки… → Лимит строк** sets how many lines to keep. The default is 5,000,000
   (100–20,000,000). Oldest received lines are discarded;
   original receipt numbers remain. This limit applies to opened files and all other streaming sources.
   Evicting part of a multiline entry can leave its beginning outside the retained data.

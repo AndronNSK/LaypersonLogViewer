@@ -35,6 +35,9 @@
       <Setter Property="RenderTransform"><RotateTransform Angle="180" /></Setter>
     </Style>
   </Window.Styles>
+  <Window.Resources>
+    <views:LogDisplayConverter x:Key="LogDisplayConverter" />
+  </Window.Resources>
   <Panel>
   <Border Name="MainContent">
   <Grid Name="MainLayout" Margin="8" RowSpacing="4">
@@ -122,15 +125,23 @@
                         Background="{Binding #RowSearchHighlight.NumberBackground}" CornerRadius="2">
                   <TextBlock Text="{Binding Number}" Foreground="#526174" TextAlignment="Right" LineHeight="16" />
                 </Border>
-                <TextBox Name="LogRowText" Grid.Column="1" Text="{Binding Text, Mode=OneWay}" LineHeight="16"
+                <TextBox Name="LogRowText" Grid.Column="1" LineHeight="16"
                                      TextWrapping="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).LogTextWrapping}"
                                      IsReadOnly="True" ClearSelectionOnLostFocus="False"
                                      IsInactiveSelectionHighlightEnabled="True"
                                      Padding="0" BorderThickness="0" MinHeight="0"
                                      Background="Transparent" Cursor="Ibeam" ContextRequested="LogText_ContextRequested"
-                                     GotFocus="LogText_GotFocus" DataContextChanged="LogText_DataContextChanged" />
+                                     GotFocus="LogText_GotFocus" DataContextChanged="LogText_DataContextChanged">
+                  <TextBox.Text>
+                    <MultiBinding Converter="{StaticResource LogDisplayConverter}">
+                      <Binding Path="." />
+                      <Binding Path="$parent[Window].((vm:MainWindowViewModel)DataContext).FormatJson" />
+                    </MultiBinding>
+                  </TextBox.Text>
+                </TextBox>
                 <views:LogSearchHighlight Name="RowSearchHighlight" Grid.Column="1" IsHitTestVisible="False" ClipToBounds="True"
                     Target="{Binding #LogRowText}" Row="{Binding}"
+                    FormatJson="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).FormatJson}"
                     Query="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).Search.HighlightText}"
                     CaseSensitive="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).Search.CaseSensitive}"
                     CurrentMatch="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).Search.CurrentMatch}" />
@@ -311,7 +322,7 @@
             <MenuItem Header="Запустить команду…" Click="StartCommand_Click" IsEnabled="{Binding !IsBusy}" />
             <MenuItem Header="Стоп" Click="StopStream_Click" IsEnabled="{Binding Live.IsActive}" />
             <MenuItem Header="Сохранить журнал…" Click="SaveLog_Click" />
-            <MenuItem Header="Лимит строк…" Click="LineLimitMenu_Click" />
+            <MenuItem Header="Настройки…" Click="SettingsMenu_Click" />
             <Separator />
             <MenuItem Header="Выход" Click="ExitMenu_Click" />
           </MenuItem>
@@ -319,6 +330,7 @@
             <MenuItem Header="Найти…" InputGesture="Ctrl+F" Click="Search_Click" />
             <Separator />
             <MenuItem Header="Перенос строк" ToggleType="CheckBox" IsChecked="{Binding WordWrap, Mode=TwoWay}" />
+            <MenuItem Header="Форматировать JSON" ToggleType="CheckBox" IsChecked="{Binding FormatJson, Mode=TwoWay}" />
             <MenuItem Header="Показывать отфильтрованные серым" ToggleType="CheckBox"
                       IsChecked="{Binding ShowFilteredOut, Mode=TwoWay}" />
             <MenuItem Header="Панель вкладок" ToggleType="CheckBox" IsChecked="{Binding #LowerPane.IsVisible, Mode=OneWay}"

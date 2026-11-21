@@ -1,0 +1,10 @@
+2026-11-21 15:00:00.000 INFO Starting JSON formatting test
+{"level":"INFO","message":"Запрос выполнен","duration":125.4,"user":{"id":42,"name":"Андрей"},"tags":["database","network"],"success":true}
+2026-11-21 15:00:01.000 ERROR {"request":13,"category":"network","error":{"message":"Connection failed","retry":true,"delays":[100,200,500]},"duration":987.6}
+[2026-11-21 15:00:01] INFO {"message":"Timestamp in brackets","items":[{"id":1},{"id":2}]}
+[{"name":"first","values":[1,2,3]},{"name":"second","values":[4,5],"empty":{},"optional":null}]
+{"escaped":"quote: \" and slash: \\","literal":"brackets { } [ ] and comma , inside a string","amount":1e+12,"text":"Русский текст"}
+{"emptyObject":{},"emptyArray":[],"flags":[true,false,null],"deep":{"child":{"value":123}}}
+{"invalid":this is intentionally invalid JSON}
+2026-11-21 15:00:02.000 INFO Ordinary text between JSON entries
+{"level":"WARN","message":"Медленный ответ","duration":2000,"size":65536}

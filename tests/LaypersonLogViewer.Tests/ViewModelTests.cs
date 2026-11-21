@@ -6,6 +6,44 @@ namespace LaypersonLogViewer.Tests;
 
 public sealed class ViewModelTests
 {
+    [Fact]
+    public async Task FragmentedFilterChangesPublishOneListAndReuseSurvivingRows()
+    {
+        var model = new MainWindowViewModel();
+        var lines = Enumerable.Range(1, 2048)
+            .Select(number => new LogLine(number, number % 2 == 0 ? "ERROR" : "INFO")).ToArray();
+        await model.ApplyLiveLinesAsync("test", lines);
+        var original = model.DisplayLines;
+        var replacements = 0;
+        var rangeChanges = 0;
+        model.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(model.DisplayLines)) replacements++;
+        };
+        ((System.Collections.Specialized.INotifyCollectionChanged)original).CollectionChanged += (_, _) => rangeChanges++;
+
+        await model.AddFilterAsync(new LogFilter(FilterKind.Include, "ERROR"));
+        Assert.Equal(1, replacements);
+        Assert.Equal(0, rangeChanges);
+        Assert.Equal(lines.Length / 2, model.DisplayLines.Count);
+        Assert.Same(original[1], model.DisplayLines[0]);
+        Assert.Equal(lines.Where(line => line.Text == "ERROR"), model.VisibleLines);
+        model.Search.Text = "ERROR";
+        Assert.Same(lines[1], (await model.Search.FindAsync())!.Line);
+
+        model.ShowFilteredOut = true;
+        Assert.Equal(2, replacements);
+        Assert.Equal(lines.Length, model.DisplayLines.Count);
+        Assert.Same(original[1], model.DisplayLines[1]);
+        Assert.True(model.DisplayLines[0].IsFilteredOut);
+        Assert.False(model.DisplayLines[1].IsFilteredOut);
+
+        var current = model.DisplayLines;
+        await model.ApplyLiveLinesAsync("test", [..lines, new(2049, "ERROR")]);
+        Assert.Same(current, model.DisplayLines);
+        Assert.Equal(2049, model.DisplayLines[^1].Number);
+    }
+
     private static async Task Load(MainWindowViewModel model, string text, string name = "test.log")
     {
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(text));

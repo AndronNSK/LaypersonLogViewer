@@ -154,9 +154,9 @@ public partial class MainWindow
             || text.GetVisualDescendants().OfType<TextPresenter>().FirstOrDefault() is not { } presenter
             || this.TranslatePoint(position, presenter) is not { } local) return null;
         if (local.Y < 0) return new(row, 0);
-        if (local.Y >= presenter.Bounds.Height) return new(row, row.Text.Length);
+        if (local.Y >= presenter.Bounds.Height) return new(row, row.DisplayText(ViewModel.FormatJson).Length);
         var hit = presenter.TextLayout.HitTestPoint(local).CharacterHit;
-        return new(row, Math.Clamp(hit.FirstCharacterIndex + hit.TrailingLength, 0, row.Text.Length));
+        return new(row, Math.Clamp(hit.FirstCharacterIndex + hit.TrailingLength, 0, row.DisplayText(ViewModel.FormatJson).Length));
     }
 
     private int ViewportEdgeDirection()
@@ -216,7 +216,7 @@ public partial class MainWindow
                 continue;
             }
             var start = ReferenceEquals(row, range.Start.Row) ? range.Start.Offset : 0;
-            var end = ReferenceEquals(row, range.End.Row) ? range.End.Offset : row.Text.Length;
+            var end = ReferenceEquals(row, range.End.Row) ? range.End.Offset : row.DisplayText(ViewModel.FormatJson).Length;
             if (text.SelectionStart != start) text.SelectionStart = start;
             if (text.SelectionEnd != end) text.SelectionEnd = end;
         }
@@ -232,12 +232,11 @@ public partial class MainWindow
     private string? GetLogTextRange()
     {
         if (_logTextRange is not { } range || !TryGetLogTextRange(out var start, out var end)) return null;
-        var lines = DisplayedLogLines;
         var builder = new StringBuilder();
         for (var index = start; index <= end; index++)
         {
             if (index > start) builder.AppendLine();
-            var line = lines[index].Text;
+            var line = ViewModel.DisplayLines[index].DisplayText(ViewModel.FormatJson);
             var from = index == start ? range.Start.Offset : 0;
             var to = index == end ? range.End.Offset : line.Length;
             builder.Append(line.AsSpan(from, to - from));

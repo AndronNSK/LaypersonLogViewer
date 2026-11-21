@@ -113,6 +113,22 @@ public sealed class StreamingTests
     }
 
     [Fact]
+    public void ConditionalSnapshotCopiesLinesOnlyForAnRequestedNewRevision()
+    {
+        var buffer = new LiveLogBuffer();
+        var initial = buffer.SnapshotAfter(-1, includeLines: true);
+        Assert.Empty(initial.Lines!);
+        Assert.Null(buffer.SnapshotAfter(initial.Revision, includeLines: true).Lines);
+
+        buffer.Add("new line");
+        var paused = buffer.SnapshotAfter(initial.Revision, includeLines: false);
+        Assert.Null(paused.Lines);
+        Assert.Equal(1, paused.Count);
+        Assert.Equal(1, paused.Received);
+        Assert.Equal("new line", Assert.Single(buffer.SnapshotAfter(initial.Revision, includeLines: true).Lines!).Text);
+    }
+
+    [Fact]
     public void BufferRetainsNewestLinesWithStableNumbersAndIndependentSnapshots()
     {
         var buffer = new LiveLogBuffer(200);

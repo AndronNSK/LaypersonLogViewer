@@ -38,4 +38,10 @@ public sealed class LiveLogBuffer(int capacity = LiveLogBuffer.DefaultCapacity)
     {
         lock (_gate) return (_lines.ToArray(), _received, _revision);
     }
+
+    public (LogLine[]? Lines, int Received, int Count, long Revision) SnapshotAfter(long revision, bool includeLines)
+    {
+        lock (_gate)
+            return (includeLines && _revision != revision ? _lines.ToArray() : null, _received, _lines.Count, _revision);
+    }
 }

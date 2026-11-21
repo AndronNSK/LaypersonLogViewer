@@ -15,7 +15,11 @@ public partial class App : Application
         {
             var window = new MainWindow();
             desktop.MainWindow = window;
-            window.Opened += async (_, _) => await window.StartFromArgumentsAsync(desktop.Args ?? []);
+            window.Opened += async (_, _) =>
+            {
+                await window.InitializeSettingsAsync(new Core.AppSettingsStore(Core.AppSettingsStore.DefaultPath));
+                await window.StartFromArgumentsAsync(desktop.Args ?? []);
+            };
         }
         base.OnFrameworkInitializationCompleted();
     }

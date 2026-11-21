@@ -78,14 +78,17 @@ public partial class MainWindow
                 if (text is null) return;
                 ClearLogTextRange();
                 ActivateLogText(text);
-                text.CaretIndex = match.Start + match.Length;
-                text.SelectionStart = match.Start;
-                text.SelectionEnd = match.Start + match.Length;
+                var row = (ViewModels.LogLineRow)text.DataContext!;
+                var start = row.DisplayOffset(match.Start, ViewModel.FormatJson);
+                var end = row.DisplayOffset(match.Start + match.Length, ViewModel.FormatJson);
+                text.CaretIndex = end;
+                text.SelectionStart = start;
+                text.SelectionEnd = end;
                 // Explicit search navigation may reveal text outside the horizontal viewport.
                 var presenter = text.GetVisualDescendants().OfType<TextPresenter>().FirstOrDefault();
                 if (presenter is not null)
                 {
-                    var caret = presenter.TextLayout.HitTestTextPosition(match.Start);
+                    var caret = presenter.TextLayout.HitTestTextPosition(start);
                     presenter.BringIntoView(new Rect(caret.X, caret.Y, 1, caret.Height));
                 }
             }

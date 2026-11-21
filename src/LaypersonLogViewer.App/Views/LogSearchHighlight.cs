@@ -45,7 +45,8 @@ public sealed class LogSearchHighlight : Control
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == RowProperty || change.Property == QueryProperty || change.Property == CaseSensitiveProperty)
+        if (change.Property == RowProperty || change.Property == QueryProperty || change.Property == CaseSensitiveProperty
+            || change.Property == FormatJsonProperty)
         {
             _matches = Row is { } row && Query.Length > 0
                 ? LogSearch.HighlightRanges(row.Text, Query, CaseSensitive).ToArray() : [];
@@ -81,7 +82,13 @@ public sealed class LogSearchHighlight : Control
         if (_textGeometry is not { } geometry) return;
         using var translation = context.PushTransform(Matrix.CreateTranslation(geometry.Origin.X, geometry.Origin.Y));
         foreach (var (start, length) in _matches)
-            foreach (var rect in geometry.Layout.HitTestTextRange(start, length))
+            foreach (var rect in geometry.Layout.HitTestTextRange(
+                Row!.DisplayOffset(start, FormatJson),
+                Row.DisplayOffset(start + length, FormatJson) - Row.DisplayOffset(start, FormatJson)))
                 context.FillRectangle(TextHighlight, rect);
     }
+
+    public static readonly StyledProperty<bool> FormatJsonProperty =
+        AvaloniaProperty.Register<LogSearchHighlight, bool>(nameof(FormatJson));
+    public bool FormatJson { get => GetValue(FormatJsonProperty); set => SetValue(FormatJsonProperty, value); }
 }

@@ -6,6 +6,19 @@ namespace LaypersonLogViewer.App.ViewModels;
 // Display state belongs to the UI, keeping the original log line unchanged.
 public sealed class LogLineRow(LogLine line, bool isFilteredOut, bool isEntryStart = false) : ObservableModel
 {
+    private bool _formatAttempted;
+    private FormattedLogText? _formatted;
+    public string DisplayText(bool format) => format ? Formatted?.Text ?? Text : Text;
+    public int DisplayOffset(int offset, bool format) => format && Formatted is { } value
+        ? value.Offsets[Math.Clamp(offset, 0, Text.Length)] : offset;
+    private FormattedLogText? Formatted
+    {
+        get
+        {
+            if (!_formatAttempted) { _formatted = JsonLogFormatter.Format(Text); _formatAttempted = true; }
+            return _formatted;
+        }
+    }
     public LogLine Line { get; } = line;
     public bool IsFilteredOut { get; private set; } = isFilteredOut;
     public bool IsEntryStart { get; private set; } = isEntryStart;

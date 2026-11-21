@@ -28,11 +28,21 @@ public partial class MainWindow : Window
         UpdateMenuLayout();
         InitializeStreaming();
         InitializeLogTextSelection();
+        ViewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(MainWindowViewModel.FormatJson)) return;
+            ClearLogTextRange();
+            foreach (var text in RealizedLogTextBoxes()) ClearLogTextSelection(text);
+        };
         AddHandler(KeyDownEvent, Search_KeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, File_DragOver, RoutingStrategies.Bubble, handledEventsToo: true);
         AddHandler(DragDrop.DropEvent, File_Drop, RoutingStrategies.Bubble, handledEventsToo: true);
-        Closed += (_, _) => { ViewModel.Live.Dispose(); ViewModel.Statistics.Dispose(); ViewModel.Search.Dispose(); };
+        Closed += (_, _) =>
+        {
+            ViewModel.Live.Dispose(); ViewModel.Statistics.Dispose(); ViewModel.Search.Dispose();
+            _updateTimer.Stop(); _updateCancellation.Cancel(); _updateClient.Dispose();
+        };
     }
 
     private MainWindowViewModel ViewModel => (MainWindowViewModel)DataContext!;
@@ -156,12 +166,19 @@ public partial class MainWindow : Window
         var start = active?.SelectionStart ?? 0;
         var end = active?.SelectionEnd ?? 0;
         var activation = _logTextActivation;
+        var previousDisplay = ViewModel.DisplayLines;
 
         if (parent is null) await ViewModel.AddFilterAsync(filter);
         else await ViewModel.AddConditionAsync(parent, filter.Condition);
         if (selectedRow is null || start == end) return;
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            if (activation != _logTextActivation) return;
+            if (!ReferenceEquals(previousDisplay, ViewModel.DisplayLines))
+            {
+                var index = LogSearch.IndexOfLine(DisplayedLogLines, selectedRow.Line);
+                if (index >= 0) LogLines.ScrollIntoView(index);
+            }
             LogLines.UpdateLayout();
             // Restore the range only if layout recycled its text box and the user
             // has not moved to another log line in the meantime.
@@ -193,12 +210,15 @@ public partial class MainWindow : Window
         var include = new MenuItem { Header = "Показать строки", IsEnabled = canAdd };
         var exclude = new MenuItem { Header = "Скрыть строки", IsEnabled = canAdd };
         var selectionStart = Math.Min(text.SelectionStart, text.SelectionEnd);
-        var canSetTimestamp = canAdd && selectedText.Any(char.IsAsciiDigit)
+        var original = (text.DataContext as LogLineRow)?.Text ?? "";
+        var canSetTimestamp = canAdd && selectionStart + selectedText.Length <= original.Length
+            && original.AsSpan(selectionStart, selectedText.Length).SequenceEqual(selectedText)
+            && selectedText.Any(char.IsAsciiDigit)
             && !selectedText.Contains('\r') && !selectedText.Contains('\n');
         var timestamp = new MenuItem { Header = "Начало записи по времени", IsEnabled = canSetTimestamp };
         var statistics = new MenuItem { Header = "Создать статистику…" };
         var copy = new MenuItem { Header = "Копировать", IsEnabled = inRange || selectedText.Length > 0 };
-        var example = text.Text ?? "";
+        var example = (text.DataContext as LogLineRow)?.Text ?? "";
         var menu = new ContextMenu
         {
             ItemsSource = new[] { timestamp, include, exclude, statistics, copy },

@@ -29,21 +29,32 @@ public sealed class LogFilter
         AdditionalConditions = Array.AsReadOnly(children);
     }
 
-    public bool Matches(string line) => Condition.Matches(line)
-        && AdditionalConditions.All(condition => condition.Matches(line));
+    public bool Matches(string line)
+    {
+        if (!Condition.Matches(line)) return false;
+        for (var index = 0; index < AdditionalConditions.Count; index++)
+            if (!AdditionalConditions[index].Matches(line)) return false;
+        return true;
+    }
 
-    public bool Matches(LogEntry entry, CancellationToken cancellationToken = default)
+    public bool Matches(LogEntry entry, CancellationToken cancellationToken = default) =>
+        Matches(entry.Lines, 0, entry.Lines.Count, cancellationToken);
+
+    internal bool Matches(IReadOnlyList<LogLine> lines, int start, int end, CancellationToken cancellationToken)
     {
         bool MatchesCondition(LogFilterCondition condition)
         {
-            foreach (var line in entry.Lines)
+            for (var index = start; index < end; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (condition.Matches(line.Text)) return true;
+                if (condition.Matches(lines[index].Text)) return true;
             }
             return false;
         }
 
-        return MatchesCondition(Condition) && AdditionalConditions.All(MatchesCondition);
+        if (!MatchesCondition(Condition)) return false;
+        for (var index = 0; index < AdditionalConditions.Count; index++)
+            if (!MatchesCondition(AdditionalConditions[index])) return false;
+        return true;
     }
 }

@@ -53,13 +53,14 @@ public sealed class LiveStreamViewModel : ObservableModel, IDisposable
     {
         var session = _session;
         if (session is null) return false;
-        var snapshot = session.Buffer.Snapshot();
-        var status = $"{session.Status} · Получено: {snapshot.Received:N0} · В памяти: {snapshot.Lines.Length:N0}"
+        // Idle or paused polling needs the counters, without copying the retained lines.
+        var snapshot = session.Buffer.SnapshotAfter(_displayedRevision, includeLines: !IsPaused && !model.IsBusy);
+        var status = $"{session.Status} · Получено: {snapshot.Received:N0} · В памяти: {snapshot.Count:N0}"
             + (IsPaused ? " · Показ приостановлен" : "");
         if (Status != status) { Status = status; Notify(nameof(Status)); }
         Notify(nameof(IsActive));
-        if (IsPaused || model.IsBusy || snapshot.Revision == _displayedRevision) return false;
-        var applied = await model.ApplyLiveLinesAsync(session.Name, snapshot.Lines,
+        if (snapshot.Lines is not { } lines || IsPaused || model.IsBusy) return false;
+        var applied = await model.ApplyLiveLinesAsync(session.Name, lines,
             () => ReferenceEquals(session, _session) && !IsPaused);
         if (applied && ReferenceEquals(session, _session)) _displayedRevision = snapshot.Revision;
         return applied;

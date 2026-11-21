@@ -8,13 +8,24 @@ namespace LaypersonLogViewer.App.ViewModels;
 public sealed class MainWindowViewModel : INotifyPropertyChanged
 {
     private readonly ObservableCollection<LogFilter> _filters = new();
-    private readonly AvaloniaList<LogLineRow> _displayRows = new();
+    private AvaloniaList<LogLineRow> _displayRows = new();
     private IReadOnlyList<LogLine> _allLines = Array.Empty<LogLine>();
     private IReadOnlyList<LogLine> _visibleLines = Array.Empty<LogLine>();
-    private IReadOnlyList<LogLineRow> _allRows = Array.Empty<LogLineRow>();
+    private LogLineRow[] _allRows = [];
     private IReadOnlyList<LogLineRow> _matchingRows = Array.Empty<LogLineRow>();
     private bool _showFilteredOut;
     private bool _wordWrap;
+    private bool _formatJson;
+    public bool FormatJson
+    {
+        get => _formatJson;
+        set
+        {
+            if (_formatJson == value) return;
+            _formatJson = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FormatJson)));
+        }
+    }
     private string? _fileName;
     private string? _error;
     private bool _isBusy;
@@ -47,7 +58,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         var revision = ++_projectionRevision;
         var filters = _filters.ToArray();
         var pattern = _timestampPattern;
-        var projection = await Task.Run(() => BuildProjection(lines, filters, pattern));
+        var previousRows = _allRows;
+        var projection = await Task.Run(() => BuildProjection(lines, CreateRows(lines, previousRows), filters, pattern));
         // User operations and newer snapshots take precedence over this batch.
         if (_isBusy || revision != _projectionRevision || isCurrent?.Invoke() == false) return false;
         _allLines = lines;
@@ -128,10 +140,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             // Read and filter away from the UI thread. Commit only after both succeed,
             // so a failed load does not discard the currently displayed file.
             var filters = _filters.ToArray();
+            var pattern = _timestampPattern;
             var result = await Task.Run(async () =>
             {
                 var lines = await LogFileReader.ReadAsync(stream);
-                return (All: lines, Projection: BuildProjection(lines, filters, _timestampPattern));
+                return (All: lines, Projection: BuildProjection(lines, CreateRows(lines, []), filters, pattern));
             });
             _allLines = result.All;
             _fileName = fileName;
@@ -183,7 +196,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         try
         {
             var filters = _filters.ToArray();
-            var projection = await Task.Run(() => BuildProjection(_allLines, filters, pattern));
+            var projection = await Task.Run(() => BuildProjection(_allLines, _allRows, filters, pattern));
             _timestampPattern = pattern;
             ApplyProjection(projection);
         }
@@ -203,57 +216,77 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             change();
             var filters = _filters.ToArray();
-            var projection = await Task.Run(() => BuildProjection(_allLines, filters, _timestampPattern));
+            var projection = await Task.Run(() => BuildProjection(_allLines, _allRows, filters, _timestampPattern));
             ApplyProjection(projection);
         }
         finally { EndOperation(); }
     }
 
-    private sealed record Projection(IReadOnlyList<LogLine> Visible, IReadOnlyList<LogLineRow> Rows,
+    [Flags]
+    private enum RowState : byte { FilteredOut = 1, EntryStart = 2 }
+
+    private sealed record Projection(IReadOnlyList<LogLine> Visible, LogLineRow[] Rows, RowState[]? States,
         IReadOnlyList<LogLineRow> MatchingRows, int Entries, int MatchingEntries, int TimestampStarts);
 
-    private static Projection BuildProjection(IReadOnlyList<LogLine> lines,
+    private static LogLineRow[] CreateRows(IReadOnlyList<LogLine> lines, LogLineRow[] previous)
+    {
+        var rows = new LogLineRow[lines.Count];
+        var oldIndex = 0;
+        for (var index = 0; index < rows.Length; index++)
+        {
+            var line = lines[index];
+            while (oldIndex < previous.Length && previous[oldIndex].Number < line.Number) oldIndex++;
+            rows[index] = oldIndex < previous.Length && ReferenceEquals(previous[oldIndex].Line, line)
+                ? previous[oldIndex++] : new LogLineRow(line, false);
+        }
+        return rows;
+    }
+
+    private static Projection BuildProjection(IReadOnlyList<LogLine> lines, LogLineRow[] rows,
         LogFilter[] filters, TimestampPattern? pattern)
     {
-        // Avoid allocating one entry object per line when grouping is disabled.
-        if (pattern is null)
-        {
-            var lineMatches = LogFilterEngine.Apply(lines, filters);
-            var numbers = lineMatches.Select(line => line.Number).ToHashSet();
-            var lineRows = lines.Select(line => new LogLineRow(line, !numbers.Contains(line.Number))).ToArray();
-            return new Projection(lineMatches, lineRows, lineRows.Where(row => !row.IsFilteredOut).ToArray(),
-                lines.Count, lineMatches.Count, 0);
-        }
-        var entries = LogEntryParser.Split(lines, pattern);
-        var matching = LogFilterEngine.ApplyEntries(entries, filters);
-        var matchingStarts = matching.Select(entry => entry.Lines[0].Number).ToHashSet();
-        var rows = new List<LogLineRow>(lines.Count);
+        if (pattern is null && filters.Length == 0)
+            return new Projection(lines, rows, null, rows, lines.Count, lines.Count, 0);
+
+        var states = new RowState[rows.Length];
+        var visible = filters.Length > 0 ? new List<LogLine>() : null;
+        var matchingRows = filters.Length > 0 ? new List<LogLineRow>() : null;
+        var entries = 0;
+        var matchingEntries = 0;
         var timestampStarts = 0;
-        foreach (var entry in entries)
+        foreach (var (start, end, matches, hasTimestamp) in LogFilterEngine.Evaluate(lines, filters, pattern))
         {
-            var first = entry.Lines[0];
-            if (pattern?.Matches(first.Text) == true) timestampStarts++;
-            var excluded = !matchingStarts.Contains(first.Number);
-            foreach (var line in entry.Lines)
-                rows.Add(new LogLineRow(line, excluded, pattern is not null && line.Number == first.Number));
+            entries++;
+            if (hasTimestamp) timestampStarts++;
+            if (!matches) states.AsSpan(start, end - start).Fill(RowState.FilteredOut);
+            else
+            {
+                matchingEntries++;
+                if (visible is not null && matchingRows is not null)
+                {
+                    for (var index = start; index < end; index++)
+                    {
+                        visible.Add(lines[index]);
+                        matchingRows.Add(rows[index]);
+                    }
+                }
+            }
+            if (pattern is not null) states[start] |= RowState.EntryStart;
         }
-        var matchingRows = rows.Where(row => !row.IsFilteredOut).ToArray();
-        return new Projection(matchingRows.Select(row => row.Line).ToArray(), rows, matchingRows,
-            entries.Count, matching.Count, timestampStarts);
+        return new Projection(visible ?? lines, rows, states, matchingRows ?? (IReadOnlyList<LogLineRow>)rows,
+            entries, matchingEntries, timestampStarts);
     }
 
     private void ApplyProjection(Projection projection, bool liveUpdate = false)
     {
         _visibleLines = projection.Visible;
-        var existing = new Dictionary<LogLine, LogLineRow>(ReferenceEqualityComparer.Instance);
-        foreach (var row in _allRows) existing.Add(row.Line, row);
-        _allRows = projection.Rows.Select(row =>
+        _allRows = projection.Rows;
+        for (var index = 0; index < _allRows.Length; index++)
         {
-            if (!existing.TryGetValue(row.Line, out var retained)) return row;
-            retained.UpdateDisplayState(row.IsFilteredOut, row.IsEntryStart);
-            return retained;
-        }).ToArray();
-        _matchingRows = _allRows.Where(row => !row.IsFilteredOut).ToArray();
+            var state = projection.States?[index] ?? 0;
+            _allRows[index].UpdateDisplayState((state & RowState.FilteredOut) != 0, (state & RowState.EntryStart) != 0);
+        }
+        _matchingRows = projection.MatchingRows;
         UpdateDisplayRows();
         _entryCount = projection.Entries;
         _matchingEntryCount = projection.MatchingEntries;
@@ -264,28 +297,55 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private void UpdateDisplayRows()
     {
         var desired = _showFilteredOut ? _allRows : _matchingRows;
-        var retained = desired.ToHashSet();
-        // Remove only rows that disappeared, in contiguous ranges. Never reset ItemsSource.
-        for (var end = _displayRows.Count - 1; end >= 0;)
-        {
-            if (retained.Contains(_displayRows[end])) { end--; continue; }
-            var start = end;
-            while (start > 0 && !retained.Contains(_displayRows[start - 1])) start--;
-            _displayRows.RemoveRange(start, end - start + 1);
-            end = start - 1;
-        }
-        // Common rows remain in source order, so only insertions are needed after removals.
-        for (var index = 0; index < desired.Count;)
-        {
-            if (index < _displayRows.Count && ReferenceEquals(_displayRows[index], desired[index]))
-            { index++; continue; }
-            var end = index + 1;
-            while (end < desired.Count && (index >= _displayRows.Count
-                || !ReferenceEquals(desired[end], _displayRows[index]))) end++;
-            _displayRows.InsertRange(index, desired.Skip(index).Take(end - index));
-            index = end;
-        }
         Search.SetLines(_showFilteredOut ? _allLines : _visibleLines);
+        if (UpdateDisplayedRanges(desired)) return;
+
+        // Many small edits would repeatedly shift a large list and invalidate Avalonia's selection model.
+        // Publish the new projection once, retaining the same row objects for surviving lines.
+        _displayRows = new AvaloniaList<LogLineRow>(desired);
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DisplayLines)));
+    }
+
+    private bool UpdateDisplayedRanges(IReadOnlyList<LogLineRow> desired)
+    {
+        Span<(int Index, int Count, bool Insert)> edits = stackalloc (int, int, bool)[16];
+        var editCount = 0;
+        var oldIndex = 0;
+        var newIndex = 0;
+        // Both lists are in file order. Plan a bounded number of edits before touching the UI collection.
+        while (oldIndex < _displayRows.Count || newIndex < desired.Count)
+        {
+            var oldRow = oldIndex < _displayRows.Count ? _displayRows[oldIndex] : null;
+            var newRow = newIndex < desired.Count ? desired[newIndex] : null;
+            if (ReferenceEquals(oldRow, newRow))
+            {
+                oldIndex++;
+                newIndex++;
+                continue;
+            }
+            if (editCount == edits.Length) return false;
+            if (oldRow is not null && (newRow is null || oldRow.Number <= newRow.Number))
+            {
+                var start = oldIndex++;
+                while (oldIndex < _displayRows.Count && (newRow is null || _displayRows[oldIndex].Number < newRow.Number))
+                    oldIndex++;
+                edits[editCount++] = (newIndex, oldIndex - start, false);
+            }
+            else
+            {
+                var start = newIndex++;
+                while (newIndex < desired.Count && (oldRow is null || desired[newIndex].Number < oldRow.Number))
+                    newIndex++;
+                edits[editCount++] = (start, newIndex - start, true);
+            }
+        }
+
+        foreach (var (index, count, insert) in edits[..editCount])
+        {
+            if (insert) _displayRows.InsertRange(index, desired.Skip(index).Take(count));
+            else _displayRows.RemoveRange(index, count);
+        }
+        return true;
     }
 
     private void BeginOperation()

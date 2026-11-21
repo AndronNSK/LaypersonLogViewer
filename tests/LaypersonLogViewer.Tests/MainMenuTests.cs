@@ -53,7 +53,7 @@ public sealed class MainMenuTests
             var file = OpenFileMenu(window);
             var stop = FindItem(file, "Стоп");
             Assert.True(FindItem(file, "Сохранить журнал…").IsEnabled);
-            Assert.True(FindItem(file, "Лимит строк…").IsEnabled);
+            Assert.True(FindItem(file, "Настройки…").IsEnabled);
             Assert.False(stop.IsEnabled);
             model.Live.Start("test", async (_, token) =>
             {
@@ -79,9 +79,11 @@ public sealed class MainMenuTests
         {
             var model = (MainWindowViewModel)window.DataContext!;
             var file = OpenFileMenu(window);
-            FindItem(file, "Лимит строк…").RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
-            var dialog = Assert.IsType<LineLimitDialog>(Assert.Single(window.OwnedWindows));
+            FindItem(file, "Настройки…").RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            var dialog = Assert.IsType<SettingsDialog>(Assert.Single(window.OwnedWindows));
             var input = dialog.GetVisualDescendants().OfType<TextBox>().Single(box => box.Name == "LineLimitInput");
+            Assert.True(dialog.GetVisualDescendants().OfType<CheckBox>().Single().IsChecked);
+            dialog.GetVisualDescendants().OfType<CheckBox>().Single().IsChecked = false;
             var applyButton = dialog.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "ApplyLineLimit");
             Assert.Equal("5000000", input.Text);
 
@@ -101,6 +103,10 @@ public sealed class MainMenuTests
             await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
             Assert.Empty(window.OwnedWindows);
             Assert.Equal(apply ? 20_000_000 : 5_000_000, model.Live.RetainedLines);
+            FindItem(file, "Настройки…").RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            var reopened = Assert.IsType<SettingsDialog>(Assert.Single(window.OwnedWindows));
+            Assert.Equal(!apply, reopened.GetVisualDescendants().OfType<CheckBox>().Single().IsChecked);
+            reopened.Close();
         }
         finally { window.Close(); }
     }
