@@ -8,6 +8,7 @@
   <Application.Styles>
     <FluentTheme DensityStyle="Compact" />
     <Style Selector="Window">
+      <Setter Property="Icon" Value="avares://LaypersonLogViewer.App/Assets/app-icon.ico" />
       <Setter Property="FontSize" Value="12" />
     </Style>
     <Style Selector="Button, ToggleSwitch, CheckBox, MenuItem">

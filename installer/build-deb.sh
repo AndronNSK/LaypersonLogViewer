@@ -62,6 +62,10 @@ PY
 
 install -d "$stage/DEBIAN" "$stage/usr/lib/layperson-log-viewer" "$stage/usr/bin" \
     "$stage/usr/share/applications" "$stage/usr/share/doc/layperson-log-viewer/samples"
+for icon_size in 16 24 32 48 64 128 256 512; do
+    install -Dm644 "$source_dir/src/LaypersonLogViewer.App/Assets/app-icon-$icon_size.png" \
+        "$stage/usr/share/icons/hicolor/${icon_size}x${icon_size}/apps/layperson-log-viewer.png"
+done
 # Optional LTTng tracing is not used by this app and requires a legacy system ABI.
 rsync -a --exclude=libcoreclrtraceptprovider.so "$publish_dir/" "$stage/usr/lib/layperson-log-viewer/"
 cp "$source_dir/README.md" "$source_dir/docs/Спецификация.md" "$stage/usr/share/doc/layperson-log-viewer/"
@@ -78,6 +82,7 @@ Name[ru]=Просмотр журналов Layperson
 Comment=View and filter log files and calculate statistics
 Exec=layperson-log-viewer
 TryExec=layperson-log-viewer
+Icon=layperson-log-viewer
 Terminal=false
 Categories=Development;Utility;
 DESKTOP

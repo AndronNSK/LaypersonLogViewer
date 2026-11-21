@@ -5,6 +5,8 @@
            Scope="perUser" UpgradeCode="F60DC440-64BF-4C58-B1EA-5F58CDE41947">
     <MajorUpgrade DowngradeErrorMessage="A newer version of Layperson Log Viewer is already installed." />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+    <Icon Id="AppIcon.ico" SourceFile="src/LaypersonLogViewer.App/Assets/app-icon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
     <Property Id="WINDOWSBUILD">
       <RegistrySearch Id="ReadWindowsBuild" Root="HKLM" Key="SOFTWARE\Microsoft\Windows NT\CurrentVersion"
                       Name="CurrentBuildNumber" Type="raw" Bitness="always64" />
@@ -31,6 +33,7 @@
       <Directory Id="ApplicationMenuFolder" Name="Layperson Log Viewer">
         <Component Id="StartMenuShortcut" Guid="*">
           <Shortcut Id="StartMenuLink" Name="Layperson Log Viewer"
+                    Icon="AppIcon.ico" IconIndex="0"
                     Target="[INSTALLFOLDER]LaypersonLogViewer.App.exe" WorkingDirectory="INSTALLFOLDER" />
           <RemoveFolder Id="RemoveMenuFolder" On="uninstall" />
           <RegistryValue Root="HKCU" Key="Software\LaypersonLogViewer\Installer"
@@ -41,6 +44,7 @@
     <StandardDirectory Id="DesktopFolder">
       <Component Id="DesktopShortcut" Guid="*">
         <Shortcut Id="DesktopLink" Name="Layperson Log Viewer"
+                  Icon="AppIcon.ico" IconIndex="0"
                   Target="[INSTALLFOLDER]LaypersonLogViewer.App.exe" WorkingDirectory="INSTALLFOLDER" />
         <RegistryValue Root="HKCU" Key="Software\LaypersonLogViewer\Installer"
                        Name="Desktop" Type="integer" Value="1" KeyPath="yes" />
