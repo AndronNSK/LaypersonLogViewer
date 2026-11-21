@@ -25,12 +25,16 @@ patterns apply to the newly opened file. Local files are read from the beginning
 
 Open **Файл → Настройки…** to change the retained-line limit or **Проверять обновления**.
 Settings are saved in the local application-data folder under `LaypersonLogViewer/settings.json`.
-Update checks run at startup and daily when enabled. **Проверить сейчас** runs a manual check.
+Automatic update checks run at most once every 24 hours across app restarts when enabled.
+**Проверить сейчас** runs a manual check. Server waiting periods also apply to manual checks.
+The persisted schedule is stored in `LaypersonLogViewer/update-check.json`.
+The app reads `updates.json` through the latest release's direct download URL.
+Background failures are quiet. Manual checks display errors and the next allowed retry time.
 Only newer published stable GitHub releases are offered. The app asks before downloading,
 verifies the SHA-256 checksum, and asks before opening the downloaded installer.
 Windows x64 uses the MSI package. Linux x64 uses the Ubuntu 22.04 Debian package.
 
-Enable **Вид → Форматировать JSON** to expand valid single-line JSON objects and arrays with
+Enable **Форматировать JSON** on the main toolbar to expand valid single-line JSON objects and arrays with
 two-space indentation, including JSON after a timestamp/severity prefix.
 Open `samples/json-formatting.log` to try nested objects, arrays, Unicode and escaped strings.
 Copy uses the displayed text. Filtering, statistics, saved logs and source line numbers use

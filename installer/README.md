@@ -27,7 +27,7 @@ to the same version. Generated tools, extension caches, and packages are ignored
 ## Build
 
 ```powershell
-pwsh -NoProfile -File installer/build-installer.ps1 -Version 0.2.7
+pwsh -NoProfile -File installer/build-installer.ps1 -Version 0.2.8
 ```
 
 Add `-Culture en-us` for English setup dialogs; the default is `ru-ru`.
@@ -36,8 +36,8 @@ dependency notices, generates stable MSI components, builds the MSI, and writes 
 Output for the default culture:
 
 ```text
-artifacts/installer/LaypersonLogViewer-0.2.7-win-x64-ru-ru.msi
-artifacts/installer/LaypersonLogViewer-0.2.7-win-x64-ru-ru.msi.sha256
+artifacts/installer/LaypersonLogViewer-0.2.8-win-x64-ru-ru.msi
+artifacts/installer/LaypersonLogViewer-0.2.8-win-x64-ru-ru.msi.sha256
 ```
 
 Send the **MSI file** to the destination computer and double-click it. It contains the
@@ -62,6 +62,23 @@ Commit the `.wxs`, `.wxl`, `.ps1`, and documentation, not generated binaries or 
 
 ## Updating
 
+The desktop updater reads the public
+`https://github.com/AndronNSK/LaypersonLogViewer/releases/latest/download/updates.json`
+asset. It stores its check schedule across launches and asks before downloading an installer.
+
+The `Publish update manifest` GitHub Actions workflow generates and attaches `updates.json`
+when a stable release is published. Upload both installers before publishing.
+The workflow uses authenticated release metadata to copy their sizes and SHA-256 digests.
+It can also be run manually for the latest published stable release.
+The workflow and generator must be present in the release's source commit.
+The endpoint becomes available after the first manifest is attached to a published release.
+
+To generate the file locally from a saved GitHub release API response, run the following command.
+
+```powershell
+pwsh -NoProfile -File installer/write-update-manifest.ps1 -ReleaseJson release.json -OutputPath updates.json
+```
+
 Keep the package's UpgradeCode stable. Increase `-Version` for every distributed release;
 Windows Installer uses it to upgrade the existing installation and prevent downgrades.
 Use the same setup language when upgrading. Do not distribute different contents with the
@@ -73,7 +90,7 @@ Trimming is disabled to retain dependencies used by the UI. Rebuild and redistri
 ## Verification
 
 - Run `dotnet test LaypersonLogViewer.slnx`.
-- Run `pwsh -NoProfile -File installer/test-installer.ps1 -Path artifacts/installer/LaypersonLogViewer-0.2.7-win-x64-ru-ru.msi`
+- Run `pwsh -NoProfile -File installer/test-installer.ps1 -Path artifacts/installer/LaypersonLogViewer-0.2.8-win-x64-ru-ru.msi`
   to check the compiled checkbox, feature selection, navigation, registry command, and checksum.
 - Confirm `coreclr.dll`, `hostfxr.dll`, `hostpolicy.dll`, and `System.Private.CoreLib.dll`
   are bundled, and runtime configuration uses `includedFrameworks` rather than `framework`.

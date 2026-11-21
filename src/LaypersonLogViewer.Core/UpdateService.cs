@@ -1,39 +1,85 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
-using System.Text.Json.Serialization;
+using System.Globalization;
 
 namespace LaypersonLogViewer.Core;
 
 public sealed record AvailableUpdate(Version Version, string FileName, Uri DownloadUrl, long Size, string Sha256);
 
-public sealed class UpdateService(HttpClient client)
+public sealed record UpdateManifest(int FormatVersion, string Version, UpdatePackage[] Packages);
+public sealed record UpdatePackage(string Platform, string FileName, string DownloadUrl, long Size, string Sha256);
+public sealed class UpdateRateLimitException(DateTimeOffset retryAt)
+    : IOException($"Проверка обновлений временно ограничена. Повторить после {retryAt.LocalDateTime:g}.")
 {
+    public DateTimeOffset RetryAt { get; } = retryAt;
+}
+
+public sealed class UpdateService(HttpClient client, TimeProvider? timeProvider = null)
+{
+    public const string ManifestUrl = "https://github.com/AndronNSK/LaypersonLogViewer/releases/latest/download/updates.json";
+    private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
+
     public async Task<AvailableUpdate?> CheckAsync(Version current, string platform, CancellationToken token)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get,
-            "https://api.github.com/repos/AndronNSK/LaypersonLogViewer/releases/latest");
+        using var request = new HttpRequestMessage(HttpMethod.Get, ManifestUrl);
         request.Headers.UserAgent.ParseAdd("LaypersonLogViewer/" + current);
         using var response = await client.SendAsync(request, token);
-        if (response.StatusCode == HttpStatusCode.NotFound) return null;
-        response.EnsureSuccessStatusCode();
-        var release = await response.Content.ReadFromJsonAsync<Release>(token);
-        if (release is null || release.Assets is null || string.IsNullOrWhiteSpace(release.Tag) || release.Draft || release.Prerelease
-            || !Version.TryParse(release.Tag.TrimStart('v'), out var version) || version <= current) return null;
+        await CheckResponseAsync(response, token);
+        var manifest = await response.Content.ReadFromJsonAsync<UpdateManifest>(token);
+        return ReadManifest(manifest, current, platform);
+    }
+
+    public static AvailableUpdate? ReadManifest(UpdateManifest? manifest, Version current, string platform)
+    {
+        if (manifest is null || manifest.FormatVersion != 1 || manifest.Packages is null
+            || !Version.TryParse(manifest.Version, out var version) || version.Build < 0 || version.Revision >= 0)
+            throw new InvalidDataException("Неподдерживаемый формат сведений об обновлении.");
+        if (version <= current) return null;
         var expected = platform switch
         {
             "win-x64" => $"LaypersonLogViewer-{version}-win-x64-ru-ru.msi",
             "linux-x64" => $"layperson-log-viewer_{version}_ubuntu22.04_amd64.deb",
             _ => ""
         };
-        var asset = release.Assets.FirstOrDefault(asset => asset.Name == expected && asset.State == "uploaded");
-        if (asset is null || asset.Size <= 0 || asset.Digest is not { Length: 71 }
-            || !asset.Digest.StartsWith("sha256:", StringComparison.Ordinal)
-            || !asset.Digest[7..].All(Uri.IsHexDigit)) return null;
-        if (!Uri.TryCreate(asset.Url, UriKind.Absolute, out var url) || url.Scheme != "https"
-            || url.Host != "github.com" || !url.AbsolutePath.StartsWith(
-                "/AndronNSK/LaypersonLogViewer/releases/download/", StringComparison.Ordinal)) return null;
-        return new(version, expected, url, asset.Size, asset.Digest[7..]);
+        var candidates = manifest.Packages.Where(asset => asset is not null && asset.Platform == platform).ToArray();
+        if (candidates.Length > 1) throw new InvalidDataException("Повторяющаяся платформа в сведениях об обновлении.");
+        if (expected.Length == 0 || candidates.Length == 0) return null;
+        var asset = candidates[0];
+        var expectedUrl = $"https://github.com/AndronNSK/LaypersonLogViewer/releases/download/{version}/{expected}";
+        if (asset.FileName != expected || asset.Size <= 0 || asset.Sha256 is not { Length: 64 }
+            || !asset.Sha256.All(Uri.IsHexDigit) || asset.DownloadUrl != expectedUrl)
+            throw new InvalidDataException("Некорректные сведения об установщике.");
+        return new(version, expected, new Uri(expectedUrl), asset.Size, asset.Sha256);
+    }
+
+    private async Task CheckResponseAsync(HttpResponseMessage response, CancellationToken token)
+    {
+        if (response.StatusCode == HttpStatusCode.NotFound)
+            throw new IOException("Сведения об обновлениях ещё не опубликованы.");
+        if (response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.TooManyRequests)
+        {
+            var retry = response.Headers.RetryAfter;
+            var remaining = response.Headers.TryGetValues("X-RateLimit-Remaining", out var values) && values.Contains("0");
+            var body = await response.Content.ReadAsStringAsync(token);
+            if (response.StatusCode == HttpStatusCode.TooManyRequests || retry is not null || remaining
+                || body.Contains("rate limit", StringComparison.OrdinalIgnoreCase))
+            {
+                var now = _time.GetUtcNow();
+                var until = now.AddMinutes(1);
+                var retryDate = retry?.Date ?? (retry?.Delta is { } delta ? now.Add(delta) : now);
+                if (retryDate > until) until = retryDate;
+                if (remaining && response.Headers.TryGetValues("X-RateLimit-Reset", out var reset)
+                    && long.TryParse(reset.FirstOrDefault(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var seconds)
+                    && seconds is >= 0 and <= 253402300799)
+                {
+                    var resetDate = DateTimeOffset.FromUnixTimeSeconds(seconds);
+                    if (resetDate > until) until = resetDate;
+                }
+                throw new UpdateRateLimitException(until);
+            }
+        }
+        response.EnsureSuccessStatusCode();
     }
 
     public async Task<string?> DownloadAsync(AvailableUpdate update, string directory,
@@ -47,7 +93,7 @@ public sealed class UpdateService(HttpClient client)
         try
         {
             using var response = await client.GetAsync(update.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, token);
-            response.EnsureSuccessStatusCode();
+            await CheckResponseAsync(response, token);
             await using (var output = File.Create(temporary))
             await using (var input = await response.Content.ReadAsStreamAsync(token))
             {
@@ -73,15 +119,4 @@ public sealed class UpdateService(HttpClient client)
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
 
-    private sealed record Release(
-        [property: JsonPropertyName("tag_name")] string Tag,
-        [property: JsonPropertyName("draft")] bool Draft,
-        [property: JsonPropertyName("prerelease")] bool Prerelease,
-        [property: JsonPropertyName("assets")] Asset[] Assets);
-    private sealed record Asset(
-        [property: JsonPropertyName("name")] string Name,
-        [property: JsonPropertyName("browser_download_url")] string Url,
-        [property: JsonPropertyName("size")] long Size,
-        [property: JsonPropertyName("digest")] string? Digest,
-        [property: JsonPropertyName("state")] string State);
 }

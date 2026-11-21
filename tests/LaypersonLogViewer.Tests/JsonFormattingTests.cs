@@ -58,7 +58,9 @@ public sealed class JsonFormattingTests
             var model = (MainWindowViewModel)window.DataContext!;
             using var stream = new MemoryStream(Encoding.UTF8.GetBytes(raw));
             await model.LoadAsync("json.log", stream);
-            model.FormatJson = true;
+            var format = window.FindControl<CheckBox>("FormatJsonBox")!;
+            format.IsChecked = true;
+            Assert.True(model.FormatJson);
             window.UpdateLayout();
             var text = window.FindControl<ListBox>("LogLines")!.GetVisualDescendants().OfType<TextBox>().Single();
             Assert.Contains("\n  \"nested\": {\n", text.Text);
@@ -71,7 +73,8 @@ public sealed class JsonFormattingTests
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             while (text.SelectedText != "Привет") await Task.Delay(10, timeout.Token);
             Assert.True(text.SelectionStart > raw.IndexOf("Привет", StringComparison.Ordinal));
-            model.FormatJson = false;
+            format.IsChecked = false;
+            Assert.False(model.FormatJson);
             window.UpdateLayout();
             Assert.Equal(raw, text.Text);
         }

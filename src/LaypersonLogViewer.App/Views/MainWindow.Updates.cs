@@ -15,9 +15,11 @@ public partial class MainWindow
     private AppSettings _settings = new();
     private AppSettingsStore? _settingsStore;
     private readonly CancellationTokenSource _updateCancellation = new();
-    private readonly DispatcherTimer _updateTimer = new() { Interval = TimeSpan.FromDays(1) };
+    private readonly DispatcherTimer _updateTimer = new() { Interval = TimeSpan.FromMinutes(15) };
     private readonly HttpClient _updateClient = new() { Timeout = TimeSpan.FromMinutes(10) };
     private bool _checkingUpdate;
+    private readonly UpdateCheckSchedule _updateSchedule = new(Path.Combine(
+        Path.GetDirectoryName(AppSettingsStore.DefaultPath)!, "update-check.json"));
 
     // Desktop startup supplies the store. Headless tests do not access user settings or the network.
     public async Task InitializeSettingsAsync(AppSettingsStore store)
@@ -34,7 +36,9 @@ public partial class MainWindow
     private async Task CheckUpdatesAsync(bool manual)
     {
         if (_checkingUpdate || _streamWindowClosed || (!manual && !_settings.CheckForUpdates)) return;
+        if (!manual && OwnedWindows.Count > 0) return;
         _checkingUpdate = true;
+        var downloadRequested = false;
         try
         {
             var platform = RuntimeInformation.ProcessArchitecture != Architecture.X64 ? ""
@@ -44,7 +48,14 @@ public partial class MainWindow
             var service = new UpdateService(_updateClient);
             using var checkTimeout = CancellationTokenSource.CreateLinkedTokenSource(_updateCancellation.Token);
             checkTimeout.CancelAfter(TimeSpan.FromSeconds(20));
-            var update = await service.CheckAsync(current, platform, checkTimeout.Token);
+            var result = await _updateSchedule.CheckAsync(service, current, platform, manual, checkTimeout.Token);
+            if (!result.Checked)
+            {
+                if (manual && result.RetryAfter is { } retryAt && !_streamWindowClosed)
+                    await ShowMenuInfoAsync("Обновления", $"Проверка временно отложена. Повторить после {retryAt.LocalDateTime:g}.");
+                return;
+            }
+            var update = result.Update;
             if (_streamWindowClosed || OwnedWindows.Count > 0) return;
             if (update is null)
             {
@@ -62,6 +73,7 @@ public partial class MainWindow
                     if (!await ConfirmUpdateAsync("Обновление",
                         $"Доступна версия {available.Version}. Скачать {available.FileName} ({available.Size / 1_000_000.0:F1} МБ)?",
                         "Скачать")) return false;
+                    downloadRequested = true;
                     var cancel = new Button { Content = "Отмена" };
                     progress = new Window
                     {
@@ -89,13 +101,17 @@ public partial class MainWindow
         catch (Exception error) when (error is HttpRequestException or IOException or UnauthorizedAccessException
             or JsonException or OperationCanceledException or System.ComponentModel.Win32Exception)
         {
+            if (error is UpdateRateLimitException limited)
+            {
+                try { await _updateSchedule.DeferAsync(limited.RetryAt); }
+                catch (Exception saveError) when (saveError is IOException or UnauthorizedAccessException or JsonException) { }
+            }
             if (!_streamWindowClosed && error is OperationCanceledException)
             {
-                if (manual) await ShowMenuInfoAsync("Обновления", "Проверка или загрузка отменена либо истекло время ожидания.");
+                if (manual || downloadRequested) await ShowMenuInfoAsync("Обновления", "Проверка или загрузка отменена либо истекло время ожидания.");
             }
-            else if (!_streamWindowClosed && manual) await ShowMenuInfoAsync("Обновления", "Не удалось проверить или загрузить обновление. " + error.Message);
-            else if (!_streamWindowClosed && error is not OperationCanceledException)
-                ViewModel.ReportError("Ошибка обновления. " + error.Message);
+            else if (!_streamWindowClosed && (manual || downloadRequested))
+                await ShowMenuInfoAsync("Обновления", "Не удалось проверить или загрузить обновление. " + error.Message);
         }
         finally { _checkingUpdate = false; }
     }

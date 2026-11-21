@@ -1,0 +1,37 @@
+name: Publish update manifest
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: update-manifest
+  cancel-in-progress: false
+jobs:
+  manifest:
+    if: github.event_name == 'workflow_dispatch' || (!github.event.release.draft && !github.event.release.prerelease)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read published release metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_ID: ${{ github.event.release.id }}
+        run: |
+          if [ -n "$RELEASE_ID" ]; then
+            gh api "repos/$GH_REPO/releases/$RELEASE_ID" > release.json
+          else
+            gh api "repos/$GH_REPO/releases/latest" > release.json
+          fi
+      - name: Generate manifest from installer hashes and sizes
+        shell: pwsh
+        run: ./installer/write-update-manifest.ps1 -ReleaseJson release.json -OutputPath updates.json
+      - name: Attach manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          tag=$(jq -r .tag_name release.json)
+          gh release upload "$tag" updates.json --clobber

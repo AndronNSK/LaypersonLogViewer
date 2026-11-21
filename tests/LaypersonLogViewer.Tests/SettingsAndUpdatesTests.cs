@@ -27,23 +27,22 @@ public sealed class SettingsAndUpdatesTests
     }
 
     [Theory]
-    [InlineData(false, false, "0.3.0", true)]
-    [InlineData(true, false, "0.3.0", false)]
-    [InlineData(false, true, "0.3.0", false)]
-    [InlineData(false, false, "0.2.6", false)]
-    public async Task ChecksOnlyOfferNewPublishedVersions(bool draft, bool prerelease, string version, bool available)
+    [InlineData("0.3.0", true)]
+    [InlineData("0.2.6", false)]
+    public async Task ChecksManifestForNewVersionsWithoutCallingRestApi(string version, bool available)
     {
         var handler = new FakeHandler(_ => new StringContent(JsonSerializer.Serialize(new
         {
-            tag_name = version, draft, prerelease,
-            assets = new[] { new { name = $"LaypersonLogViewer-{version}-win-x64-ru-ru.msi", state = "uploaded",
-                size = 3, digest = "sha256:" + new string('a', 64),
-                browser_download_url = $"https://github.com/AndronNSK/LaypersonLogViewer/releases/download/{version}/setup.msi" } }
+            FormatVersion = 1, Version = version,
+            Packages = new[] { new UpdatePackage("win-x64", $"LaypersonLogViewer-{version}-win-x64-ru-ru.msi",
+                $"https://github.com/AndronNSK/LaypersonLogViewer/releases/download/{version}/LaypersonLogViewer-{version}-win-x64-ru-ru.msi",
+                3, new string('a', 64)) }
         })));
         using var client = new HttpClient(handler);
         var update = await new UpdateService(client).CheckAsync(new Version("0.2.6"), "win-x64", TestContext.Current.CancellationToken);
         Assert.Equal(available, update is not null);
         Assert.Equal(1, handler.Requests);
+        Assert.Equal(UpdateService.ManifestUrl, handler.LastUrl);
     }
 
     [Fact]
@@ -75,9 +74,11 @@ public sealed class SettingsAndUpdatesTests
     private sealed class FakeHandler(Func<HttpRequestMessage, HttpContent> content) : HttpMessageHandler
     {
         public int Requests { get; private set; }
+        public string? LastUrl { get; private set; }
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
         {
             Requests++;
+            LastUrl = request.RequestUri!.AbsoluteUri;
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content(request) });
         }
     }

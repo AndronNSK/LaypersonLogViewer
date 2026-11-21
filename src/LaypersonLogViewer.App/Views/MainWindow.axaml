@@ -70,6 +70,9 @@
                     ToolTip.Tip="Следовать за новыми строками. Нажатие на строку отключает прокрутку; прокрутка до конца включает её." />
         </StackPanel>
         <WrapPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
+          <CheckBox Name="FormatJsonBox" Content="Форматировать JSON" Margin="0,0,8,0"
+                    IsChecked="{Binding FormatJson, Mode=TwoWay}" VerticalAlignment="Center"
+                    ToolTip.Tip="Показывать JSON с отступом в два пробела" />
           <CheckBox Name="WordWrapBox" Content="Перенос строк" Margin="0,0,8,0"
                     IsChecked="{Binding WordWrap, Mode=TwoWay}" VerticalAlignment="Center"
                     ToolTip.Tip="Переносить длинные строки по ширине окна" />
@@ -330,7 +333,6 @@
             <MenuItem Header="Найти…" InputGesture="Ctrl+F" Click="Search_Click" />
             <Separator />
             <MenuItem Header="Перенос строк" ToggleType="CheckBox" IsChecked="{Binding WordWrap, Mode=TwoWay}" />
-            <MenuItem Header="Форматировать JSON" ToggleType="CheckBox" IsChecked="{Binding FormatJson, Mode=TwoWay}" />
             <MenuItem Header="Показывать отфильтрованные серым" ToggleType="CheckBox"
                       IsChecked="{Binding ShowFilteredOut, Mode=TwoWay}" />
             <MenuItem Header="Панель вкладок" ToggleType="CheckBox" IsChecked="{Binding #LowerPane.IsVisible, Mode=OneWay}"

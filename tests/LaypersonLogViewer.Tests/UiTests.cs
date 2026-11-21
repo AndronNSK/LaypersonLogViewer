@@ -49,6 +49,7 @@ public sealed class UiTests
                 window.FindControl<CheckBox>("PauseStreamBox")!,
                 window.FindControl<CheckBox>("FollowLatestBox")!,
                 window.FindControl<CheckBox>("WordWrapBox")!,
+                window.FindControl<CheckBox>("FormatJsonBox")!,
                 window.FindControl<ToggleSwitch>("ShowFilteredOutSwitch")!
             };
             var reset = window.FindControl<Button>("ResetTimestampButton")!;
